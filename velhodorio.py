@@ -11,7 +11,7 @@ from tools.music_tools import consultar_acervo_musical
 from tools.ponto import registrar_ponto_trabalho
 from agno.tools.google.calendar import GoogleCalendarTools
 from agno.tools.mcp import MCPTools
-from agno.tools.mcp.params import SSEClientParams, StdioServerParams
+from mcp import StdioServerParams, SSEClientParams
 
 
 # --- LOGS RAIZ ---
