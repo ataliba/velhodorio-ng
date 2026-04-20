@@ -12,6 +12,8 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 
 ### 🛠️ Alterado
 - **Portabilidade do Agente**: `velhodorio.py` agora detecta dinamicamente o caminho do Node e utiliza a variável de ambiente `RECLAIM_MCP_URL`.
+- **Arquitetura Nativa (Debian)**: Substituída a dependência do PM2 pelo Systemd nativo para maior estabilidade e integração com o Debian 13.
+- **Scripts de Setup Robustos**: Atualizados para suportar Debian/Ubuntu como alvo principal e Alpine como fallback.
 - **README Atualizado**: Novas seções sobre instalação automatizada e arquitetura distribuída.
 
 ### 🔒 Segurança
