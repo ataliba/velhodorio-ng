@@ -51,11 +51,10 @@ source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 5. Criação do serviço Systemd para o Agente
+# 5. Criação do serviço de inicialização (Systemd ou OpenRC)
 if command -v systemctl &> /dev/null; then
-    echo "⚙️ Criando serviço velhodorio.service..."
+    echo "⚙️ Configurando serviço Systemd (Debian/Ubuntu/Alma)..."
     SERVICE_FILE="/etc/systemd/system/velhodorio.service"
-    
     sudo bash -c "cat <<EOF > $SERVICE_FILE
 [Unit]
 Description=Agente Velho do Rio - Cyber Xamã
@@ -73,6 +72,29 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF"
     sudo systemctl daemon-reload
+    echo "✅ Serviço systemd criado."
+elif command -v rc-service &> /dev/null; then
+    echo "🏔️ Configurando serviço OpenRC (Alpine)..."
+    INIT_FILE="/etc/init.d/velhodorio"
+    sudo bash -c "cat <<EOF > $INIT_FILE
+#!/sbin/openrc-run
+
+name=\"velhodorio\"
+description=\"Agente Velho do Rio - Cyber Xamã\"
+command=\"/usr/bin/infisical\"
+command_args=\"run -- $PROJECT_DIR/venv/bin/python $PROJECT_DIR/velhodorio.py\"
+command_user=\"$USER\"
+directory=\"$PROJECT_DIR\"
+pidfile=\"/run/velhodorio.pid\"
+command_background=\"yes\"
+
+depend() {
+    need net
+}
+EOF"
+    sudo chmod +x "$INIT_FILE"
+    sudo rc-update add velhodorio default
+    echo "✅ Serviço OpenRC criado e habilitado no boot."
 fi
 
 echo "✨ Agente instalado! Lembre-se de configurar RECLAIM_MCP_URL no Infisical."

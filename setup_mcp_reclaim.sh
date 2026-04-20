@@ -40,9 +40,9 @@ cd "$INSTALL_DIR"
 npm install
 npm run build
 
-# 4. Criação do serviço Systemd
+# 4. Criação do serviço de inicialização (Systemd ou OpenRC)
 if command -v systemctl &> /dev/null; then
-    echo "⚙️ Criando serviço reclaim-mcp.service..."
+    echo "⚙️ Criando serviço reclaim-mcp.service (Systemd)..."
     SERVICE_FILE="/etc/systemd/system/reclaim-mcp.service"
     NODE_PATH=$(which node || echo "/usr/bin/node")
     
@@ -68,7 +68,37 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF"
     sudo systemctl daemon-reload
-    echo "✅ Serviço criado! Inicie com: sudo systemctl start reclaim-mcp"
+    echo "✅ Serviço systemd criado."
+elif command -v rc-service &> /dev/null; then
+    echo "🏔️ Configurando serviço OpenRC (Alpine)..."
+    INIT_FILE="/etc/init.d/reclaim-mcp"
+    NODE_PATH=$(which node || echo "/usr/bin/node")
+    
+    sudo bash -c "cat <<EOF > $INIT_FILE
+#!/sbin/openrc-run
+
+name=\"reclaim-mcp\"
+description=\"Reclaim MCP Server (HTTP)\"
+command=\"/usr/bin/infisical\"
+command_args=\"run -- $NODE_PATH dist/index.js\"
+command_user=\"$USER\"
+directory=\"$INSTALL_DIR\"
+pidfile=\"/run/reclaim-mcp.pid\"
+command_background=\"yes\"
+
+# Variáveis de ambiente para o MCP
+export MCP_TRANSPORT=\"http\"
+export MCP_HTTP_HOST=\"0.0.0.0\"
+export MCP_HTTP_PORT=\"3000\"
+export MCP_HTTP_ALLOW_ANY_ORIGIN=\"true\"
+
+depend() {
+    need net
+}
+EOF"
+    sudo chmod +x "$INIT_FILE"
+    sudo rc-update add reclaim-mcp default
+    echo "✅ Serviço OpenRC criado e habilitado no boot."
 fi
 
 echo "✨ Servidor MCP instalado com sucesso na porta 3000!"
