@@ -4,6 +4,7 @@ import logging
 import os
 import asyncio
 import shutil
+import requests as _requests
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.db.sqlite import SqliteDb
@@ -46,16 +47,28 @@ n8n_mcp_server = MCPTools(
 logger.info(f"🔌 Conector MCP preparado para apontar as águas do n8n em: {os.getenv('MCP_URL')}")
 
 # Inicializa o conector do Reclaim via protocolo MCP (SSE)
-# Busca a URL do ambiente (Infisical) ou usa o padrão local
-reclaim_mcp_url = os.getenv("RECLAIM_MCP_URL") or "http://localhost:3000/mcp"
+# Faz um health check antes para não travar o agente se o servidor estiver offline
+reclaim_mcp_url = os.getenv("RECLAIM_URL") or "http://localhost:3000/mcp"
 
-reclaim_mcp_server = MCPTools(
-    transport="sse",
-    server_params=SSEClientParams(
-        url=reclaim_mcp_url
+def _reclaim_online(url: str, timeout: int = 3) -> bool:
+    """Verifica se o servidor Reclaim MCP está acessível."""
+    try:
+        # Bate na raiz do servidor (não na rota /mcp) para checar conectividade
+        base = url.rsplit("/mcp", 1)[0]
+        _requests.get(base, timeout=timeout)
+        return True
+    except Exception:
+        return False
+
+reclaim_mcp_server = None
+if _reclaim_online(reclaim_mcp_url):
+    reclaim_mcp_server = MCPTools(
+        transport="sse",
+        server_params=SSEClientParams(url=reclaim_mcp_url)
     )
-)
-logger.info(f"📅 Conector Reclaim preparado apontando para: {reclaim_mcp_url}")
+    logger.info(f"📅 Reclaim MCP online → {reclaim_mcp_url}")
+else:
+    logger.warning(f"⚠️  Reclaim MCP offline ou inacessível em {reclaim_mcp_url} — agente sobe sem ele.")
 
 # --- AGENTE: O VELHO DO RIO ---
 # Aqui injetamos a alma que você já tinha no prompt antigo, 
@@ -67,7 +80,7 @@ velho_rio = Agent(
     db=storage,
     read_chat_history=True,
     num_history_messages=15, # Um pouco mais de memória para identificar padrões longos
-    tools=[consultar_acervo_musical, registrar_ponto_trabalho, n8n_mcp_server, reclaim_mcp_server],
+    tools=[t for t in [consultar_acervo_musical, registrar_ponto_trabalho, n8n_mcp_server, reclaim_mcp_server] if t is not None],
     debug_mode=True, # Mostra o debug interno do Agno, listando as tools carregadas via MCP
  description="""
         Você é o Velho do Rio 🌿🕶️, um mentor cyber-xamã que habita a margem entre o código e o inconsciente.

@@ -78,15 +78,23 @@ def dispatch(source: str, chat_id: str, text: str) -> bool:
     """
     Roteador central. Decide o canal com base no campo 'source' do JSON.
 
+    Para Telegram: usa TELEGRAM_CHAT do Infisical como destino prioritário.
+    Para Evolution: usa o chatId que veio no payload (número do remetente).
+
     Args:
         source  : "evolution" ou "telegram"
-        chat_id : destinatário (formato varia por canal)
+        chat_id : destinatário vindo do metadata (fallback para Telegram)
         text    : conteúdo da resposta gerada pelo agente
     """
     if source == "evolution":
         return send_evolution(chat_id, text)
     elif source == "telegram":
-        return send_telegram(chat_id, text)
+        # Prioriza o ID fixo do Infisical; usa o do payload como fallback
+        telegram_chat_id = os.getenv("TELEGRAM_CHAT") or chat_id
+        if not telegram_chat_id:
+            logger.error("❌ Telegram: TELEGRAM_CHAT não configurado e chatId ausente no payload.")
+            return False
+        return send_telegram(telegram_chat_id, text)
     else:
         logger.warning(f"⚠️ Canal desconhecido: '{source}'. Nenhuma mensagem enviada.")
         return False
