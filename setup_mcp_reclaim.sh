@@ -40,72 +40,20 @@ cd "$INSTALL_DIR"
 npm install
 npm run build
 
-# 4. Criação do serviço de inicialização (Systemd ou OpenRC)
-if command -v systemctl &> /dev/null; then
-    echo "⚙️ Criando serviço reclaim-mcp.service (Systemd)..."
-    SERVICE_FILE="/etc/systemd/system/reclaim-mcp.service"
-    NODE_PATH=$(which node || echo "/usr/bin/node")
-    
-    sudo bash -c "cat <<EOF > $SERVICE_FILE
-[Unit]
-Description=Reclaim MCP Server (HTTP)
-After=network.target
+# 4. Instalação do PM2 (Opcional, mas recomendado)
+echo "🚀 Instalando PM2 para gerenciamento de processos..."
+sudo npm install -g pm2
 
-[Service]
-Type=simple
-User=$USER
-WorkingDirectory=$INSTALL_DIR
-# Roda o servidor em modo HTTP e expõe para a rede
-ExecStart=/usr/bin/infisical run -- $NODE_PATH dist/index.js
-Environment=MCP_TRANSPORT=http
-Environment=MCP_HTTP_HOST=0.0.0.0
-Environment=MCP_HTTP_PORT=3000
-Environment=MCP_HTTP_ALLOW_ANY_ORIGIN=true
-Restart=always
-RestartSec=5
+# 5. Inicialização via PM2 (Universal para Alpine/Debian)
+echo "⚙️ Configurando serviço no PM2..."
+pm2 delete reclaim-mcp 2>/dev/null || true
+# Rodamos através do Infisical para injetar as chaves
+pm2 start "infisical run -- node dist/index.js" --name reclaim-mcp --env MCP_TRANSPORT=http --env MCP_HTTP_HOST=0.0.0.0 --env MCP_HTTP_PORT=3000 --env MCP_HTTP_ALLOW_ANY_ORIGIN=true
 
-[Install]
-WantedBy=multi-user.target
-EOF"
-    sudo systemctl daemon-reload
-    echo "✅ Serviço systemd criado."
-elif command -v rc-service &> /dev/null; then
-    echo "🏔️ Configurando serviço OpenRC (Alpine)..."
-    INIT_FILE="/etc/init.d/reclaim-mcp"
-    NODE_PATH=$(which node || echo "/usr/bin/node")
-    INFISICAL_PATH=$(which infisical || echo "/usr/bin/infisical")
-    
-    sudo bash -c "cat <<EOF > $INIT_FILE
-#!/sbin/openrc-run
+# Salvar para persistir no boot
+pm2 save
 
-# Usando supervise-daemon para melhor controle no Alpine
-supervisor=\"supervise-daemon\"
-name=\"reclaim-mcp\"
-description=\"Reclaim MCP Server (HTTP)\"
-
-# Caminhos absolutos são vitais aqui
-command=\"$INFISICAL_PATH\"
-command_args=\"run -- $NODE_PATH $INSTALL_DIR/dist/index.js\"
-command_user=\"$USER\"
-directory=\"$INSTALL_DIR\"
-
-# Variáveis de ambiente
-export MCP_TRANSPORT=\"http\"
-export MCP_HTTP_HOST=\"0.0.0.0\"
-export MCP_HTTP_PORT=\"3000\"
-export MCP_HTTP_ALLOW_ANY_ORIGIN=\"true\"
-
-# Logs para debug
-output_log=\"$INSTALL_DIR/mcp_output.log\"
-error_log=\"$INSTALL_DIR/mcp_error.log\"
-
-depend() {
-    need net
-}
-EOF"
-    sudo chmod +x "$INIT_FILE"
-    sudo rc-update add reclaim-mcp default
-    echo "✅ Serviço OpenRC criado e habilitado no boot."
-fi
-
-echo "✨ Servidor MCP instalado com sucesso na porta 3000!"
+echo ""
+echo "✨ Servidor MCP instalado e rodando via PM2 na porta 3000!"
+echo "👉 Veja os logs: pm2 logs reclaim-mcp"
+echo "👉 Status: pm2 list"
