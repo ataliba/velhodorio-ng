@@ -4,10 +4,12 @@ import logging
 import os
 import asyncio
 import shutil
+import requests as _requests
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.db.sqlite import SqliteDb
 from tools.music_tools import consultar_acervo_musical
+from tools.messenger import dispatch
 from tools.ponto import registrar_ponto_trabalho
 from agno.tools.google.calendar import GoogleCalendarTools
 from agno.tools.mcp import MCPTools
@@ -45,16 +47,28 @@ n8n_mcp_server = MCPTools(
 logger.info(f"🔌 Conector MCP preparado para apontar as águas do n8n em: {os.getenv('MCP_URL')}")
 
 # Inicializa o conector do Reclaim via protocolo MCP (SSE)
-# Busca a URL do ambiente (Infisical) ou usa o padrão local
-reclaim_mcp_url = os.getenv("RECLAIM_MCP_URL") or "http://localhost:3000/mcp"
+# Faz um health check antes para não travar o agente se o servidor estiver offline
+reclaim_mcp_url = os.getenv("RECLAIM_URL") or "http://localhost:3000/mcp"
 
-reclaim_mcp_server = MCPTools(
-    transport="sse",
-    server_params=SSEClientParams(
-        url=reclaim_mcp_url
+def _reclaim_online(url: str, timeout: int = 3) -> bool:
+    """Verifica se o servidor Reclaim MCP está acessível."""
+    try:
+        # Bate na raiz do servidor (não na rota /mcp) para checar conectividade
+        base = url.rsplit("/mcp", 1)[0]
+        _requests.get(base, timeout=timeout)
+        return True
+    except Exception:
+        return False
+
+reclaim_mcp_server = None
+if _reclaim_online(reclaim_mcp_url):
+    reclaim_mcp_server = MCPTools(
+        transport="sse",
+        server_params=SSEClientParams(url=reclaim_mcp_url)
     )
-)
-logger.info(f"📅 Conector Reclaim preparado apontando para: {reclaim_mcp_url}")
+    logger.info(f"📅 Reclaim MCP online → {reclaim_mcp_url}")
+else:
+    logger.warning(f"⚠️  Reclaim MCP offline ou inacessível em {reclaim_mcp_url} — agente sobe sem ele.")
 
 # --- AGENTE: O VELHO DO RIO ---
 # Aqui injetamos a alma que você já tinha no prompt antigo, 
@@ -66,7 +80,7 @@ velho_rio = Agent(
     db=storage,
     read_chat_history=True,
     num_history_messages=15, # Um pouco mais de memória para identificar padrões longos
-    tools=[consultar_acervo_musical, registrar_ponto_trabalho, n8n_mcp_server, reclaim_mcp_server],
+    tools=[t for t in [consultar_acervo_musical, registrar_ponto_trabalho, n8n_mcp_server, reclaim_mcp_server] if t is not None],
     debug_mode=True, # Mostra o debug interno do Agno, listando as tools carregadas via MCP
  description="""
         Você é o Velho do Rio 🌿🕶️, um mentor cyber-xamã que habita a margem entre o código e o inconsciente.
@@ -104,14 +118,16 @@ def iniciar_consumidor():
                     body = json.loads(msg['Body'])
                     
                     # Dados vindos do n8n
-                    content = body.get('content', '')
+                    content  = body.get('content', '')
                     metadata = body.get('metadata', {})
-                    session_id = metadata.get('chatId', 'geral')
-                    date_time = metadata.get('date_time', '')
+                    session_id = metadata.get('sessionId') or metadata.get('chatId', 'geral')
+                    chat_id    = metadata.get('chatId', '')
+                    source     = metadata.get('source', '')   # "evolution" ou "telegram"
+                    date_time  = metadata.get('date_time', '')
 
-                    logger.info(f"📩 Escutando o chamado de: {session_id}")
+                    logger.info(f"📩 Chamado de: {session_id} | Canal: {source}")
 
-                    # Se tiver a data/hora no JSON, injeta como contexto para o LLM poder repassar para as tools
+                    # Injeta data/hora como contexto para o LLM repassar às tools
                     if date_time:
                         prompt_final = f"[Informação do Sistema - Data/Hora exata do registro: {date_time}]\n\n{content}"
                     else:
@@ -119,9 +135,16 @@ def iniciar_consumidor():
 
                     # O Agno precisa usar o modo assíncrono (arun) para inicializar as ferramentas MCP
                     run_response = asyncio.run(velho_rio.arun(prompt_final, session_id=session_id))
-                    
-                    # Exibe no terminal para você acompanhar a sabedoria
-                    print(f"\n👴 VELHO: {run_response.content}\n")
+                    resposta = run_response.content
+
+                    # Exibe no terminal para acompanhamento
+                    print(f"\n👴 VELHO: {resposta}\n")
+
+                    # Despacha a resposta para o canal de origem
+                    if source and chat_id:
+                        dispatch(source, chat_id, resposta)
+                    else:
+                        logger.warning("⚠️ 'source' ou 'chatId' ausente no metadata — resposta não enviada ao canal.")
 
                     # Deleta da fila
                     sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=receipt_handle)
