@@ -11,7 +11,8 @@ from tools.music_tools import consultar_acervo_musical
 from tools.ponto import registrar_ponto_trabalho
 from agno.tools.google.calendar import GoogleCalendarTools
 from agno.tools.mcp import MCPTools
-from mcp import StdioServerParameters, SSEClientParameters
+from mcp import StdioServerParameters
+from agno.tools.mcp.params import SSEClientParams
 
 
 # --- LOGS RAIZ ---
@@ -34,7 +35,7 @@ calendar_tools = GoogleCalendarTools(
 # As variáveis MCP_URL e MCP_TOKEN devem estar no Infisical
 n8n_mcp_server = MCPTools(
     transport="sse",
-    server_params=SSEClientParameters(
+    server_params=SSEClientParams(
         url=os.getenv("MCP_URL") or "http://localhost",
         headers={
             "Authorization": f"Bearer {os.getenv('MCP_TOKEN')}"
@@ -49,7 +50,7 @@ reclaim_mcp_url = os.getenv("RECLAIM_MCP_URL") or "http://localhost:3000/mcp"
 
 reclaim_mcp_server = MCPTools(
     transport="sse",
-    server_params=SSEClientParameters(
+    server_params=SSEClientParams(
         url=reclaim_mcp_url
     )
 )
