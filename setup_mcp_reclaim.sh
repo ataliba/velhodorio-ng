@@ -40,9 +40,9 @@ cd "$INSTALL_DIR"
 npm install
 npm run build
 
-# 4. Criação do serviço de inicialização (Systemd ou OpenRC)
+# 4. Criação do serviço de inicialização (Systemd)
 if command -v systemctl &> /dev/null; then
-    echo "⚙️ Criando serviço reclaim-mcp.service (Systemd)..."
+    echo "⚙️ Configurando serviço reclaim-mcp.service (Systemd)..."
     SERVICE_FILE="/etc/systemd/system/reclaim-mcp.service"
     NODE_PATH=$(which node || echo "/usr/bin/node")
     
@@ -68,37 +68,33 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF"
     sudo systemctl daemon-reload
-    echo "✅ Serviço systemd criado."
+    sudo systemctl enable reclaim-mcp
+    echo "✅ Serviço systemd criado e habilitado."
 elif command -v rc-service &> /dev/null; then
-    echo "🏔️ Configurando serviço OpenRC (Alpine)..."
+    echo "🏔️ Configurando serviço OpenRC (Fallback Alpine)..."
+    # ... (mantendo o suporte ao OpenRC por segurança)
     INIT_FILE="/etc/init.d/reclaim-mcp"
     NODE_PATH=$(which node || echo "/usr/bin/node")
-    
+    INFISICAL_PATH=$(which infisical || echo "/usr/bin/infisical")
     sudo bash -c "cat <<EOF > $INIT_FILE
 #!/sbin/openrc-run
-
+supervisor=\"supervise-daemon\"
 name=\"reclaim-mcp\"
-description=\"Reclaim MCP Server (HTTP)\"
-command=\"/usr/bin/infisical\"
-command_args=\"run -- $NODE_PATH dist/index.js\"
+command=\"$INFISICAL_PATH\"
+command_args=\"run -- $NODE_PATH $INSTALL_DIR/dist/index.js\"
 command_user=\"$USER\"
 directory=\"$INSTALL_DIR\"
-pidfile=\"/run/reclaim-mcp.pid\"
-command_background=\"yes\"
-
-# Variáveis de ambiente para o MCP
 export MCP_TRANSPORT=\"http\"
 export MCP_HTTP_HOST=\"0.0.0.0\"
 export MCP_HTTP_PORT=\"3000\"
 export MCP_HTTP_ALLOW_ANY_ORIGIN=\"true\"
-
-depend() {
-    need net
-}
+depend() { need net; }
 EOF"
     sudo chmod +x "$INIT_FILE"
     sudo rc-update add reclaim-mcp default
-    echo "✅ Serviço OpenRC criado e habilitado no boot."
 fi
 
-echo "✨ Servidor MCP instalado com sucesso na porta 3000!"
+echo ""
+echo "✨ Servidor MCP pronto no Debian!"
+echo "👉 Iniciar: sudo systemctl start reclaim-mcp"
+echo "👉 Logs: journalctl -u reclaim-mcp -f"

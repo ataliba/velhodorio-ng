@@ -76,17 +76,24 @@ EOF"
 elif command -v rc-service &> /dev/null; then
     echo "🏔️ Configurando serviço OpenRC (Alpine)..."
     INIT_FILE="/etc/init.d/velhodorio"
+    INFISICAL_PATH=$(which infisical || echo "/usr/bin/infisical")
+    
     sudo bash -c "cat <<EOF > $INIT_FILE
 #!/sbin/openrc-run
 
+# Usando supervise-daemon para manter o processo vivo
+supervisor=\"supervise-daemon\"
 name=\"velhodorio\"
 description=\"Agente Velho do Rio - Cyber Xamã\"
-command=\"/usr/bin/infisical\"
+
+command=\"$INFISICAL_PATH\"
 command_args=\"run -- $PROJECT_DIR/venv/bin/python $PROJECT_DIR/velhodorio.py\"
 command_user=\"$USER\"
 directory=\"$PROJECT_DIR\"
-pidfile=\"/run/velhodorio.pid\"
-command_background=\"yes\"
+
+# Logs para debug
+output_log=\"$PROJECT_DIR/agent_output.log\"
+error_log=\"$PROJECT_DIR/agent_error.log\"
 
 depend() {
     need net
