@@ -1,0 +1,26 @@
+# Ambientes Virtuais
+venv/
+env/
+.env
+
+# Arquivos compilados do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Banco de dados e Persistência Local
+velho_rio.db
+*.sqlite3
+
+# Credenciais e Autenticação (Google Calendar e outros)
+credentials.json
+token.json
+
+# IDEs e Sistema Operacional
+.vscode/
+.idea/
+.DS_Store
+
+# Infisical e Segredos locais (caso decida usar .env local futuramente)
+.infisical.json

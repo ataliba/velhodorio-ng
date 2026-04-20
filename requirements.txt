@@ -1,0 +1,12 @@
+boto3
+botocore[crt]
+agno
+openai
+sqlalchemy
+pymongo
+pytz
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+mcp
+requests
