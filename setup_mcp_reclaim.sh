@@ -73,24 +73,31 @@ elif command -v rc-service &> /dev/null; then
     echo "🏔️ Configurando serviço OpenRC (Alpine)..."
     INIT_FILE="/etc/init.d/reclaim-mcp"
     NODE_PATH=$(which node || echo "/usr/bin/node")
+    INFISICAL_PATH=$(which infisical || echo "/usr/bin/infisical")
     
     sudo bash -c "cat <<EOF > $INIT_FILE
 #!/sbin/openrc-run
 
+# Usando supervise-daemon para melhor controle no Alpine
+supervisor=\"supervise-daemon\"
 name=\"reclaim-mcp\"
 description=\"Reclaim MCP Server (HTTP)\"
-command=\"/usr/bin/infisical\"
-command_args=\"run -- $NODE_PATH dist/index.js\"
+
+# Caminhos absolutos são vitais aqui
+command=\"$INFISICAL_PATH\"
+command_args=\"run -- $NODE_PATH $INSTALL_DIR/dist/index.js\"
 command_user=\"$USER\"
 directory=\"$INSTALL_DIR\"
-pidfile=\"/run/reclaim-mcp.pid\"
-command_background=\"yes\"
 
-# Variáveis de ambiente para o MCP
+# Variáveis de ambiente
 export MCP_TRANSPORT=\"http\"
 export MCP_HTTP_HOST=\"0.0.0.0\"
 export MCP_HTTP_PORT=\"3000\"
 export MCP_HTTP_ALLOW_ANY_ORIGIN=\"true\"
+
+# Logs para debug
+output_log=\"$INSTALL_DIR/mcp_output.log\"
+error_log=\"$INSTALL_DIR/mcp_error.log\"
 
 depend() {
     need net
