@@ -8,6 +8,7 @@ from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.db.sqlite import SqliteDb
 from tools.music_tools import consultar_acervo_musical
+from tools.messenger import dispatch
 from tools.ponto import registrar_ponto_trabalho
 from agno.tools.google.calendar import GoogleCalendarTools
 from agno.tools.mcp import MCPTools
@@ -104,14 +105,16 @@ def iniciar_consumidor():
                     body = json.loads(msg['Body'])
                     
                     # Dados vindos do n8n
-                    content = body.get('content', '')
+                    content  = body.get('content', '')
                     metadata = body.get('metadata', {})
-                    session_id = metadata.get('chatId', 'geral')
-                    date_time = metadata.get('date_time', '')
+                    session_id = metadata.get('sessionId') or metadata.get('chatId', 'geral')
+                    chat_id    = metadata.get('chatId', '')
+                    source     = metadata.get('source', '')   # "evolution" ou "telegram"
+                    date_time  = metadata.get('date_time', '')
 
-                    logger.info(f"📩 Escutando o chamado de: {session_id}")
+                    logger.info(f"📩 Chamado de: {session_id} | Canal: {source}")
 
-                    # Se tiver a data/hora no JSON, injeta como contexto para o LLM poder repassar para as tools
+                    # Injeta data/hora como contexto para o LLM repassar às tools
                     if date_time:
                         prompt_final = f"[Informação do Sistema - Data/Hora exata do registro: {date_time}]\n\n{content}"
                     else:
@@ -119,9 +122,16 @@ def iniciar_consumidor():
 
                     # O Agno precisa usar o modo assíncrono (arun) para inicializar as ferramentas MCP
                     run_response = asyncio.run(velho_rio.arun(prompt_final, session_id=session_id))
-                    
-                    # Exibe no terminal para você acompanhar a sabedoria
-                    print(f"\n👴 VELHO: {run_response.content}\n")
+                    resposta = run_response.content
+
+                    # Exibe no terminal para acompanhamento
+                    print(f"\n👴 VELHO: {resposta}\n")
+
+                    # Despacha a resposta para o canal de origem
+                    if source and chat_id:
+                        dispatch(source, chat_id, resposta)
+                    else:
+                        logger.warning("⚠️ 'source' ou 'chatId' ausente no metadata — resposta não enviada ao canal.")
 
                     # Deleta da fila
                     sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=receipt_handle)
