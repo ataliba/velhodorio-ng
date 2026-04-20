@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import asyncio
+import shutil
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.db.sqlite import SqliteDb
@@ -10,7 +11,7 @@ from tools.music_tools import consultar_acervo_musical
 from tools.ponto import registrar_ponto_trabalho
 from agno.tools.google.calendar import GoogleCalendarTools
 from agno.tools.mcp import MCPTools
-from agno.tools.mcp.params import SSEClientParams
+from agno.tools.mcp.params import SSEClientParams, StdioServerParams
 
 
 # --- LOGS RAIZ ---
@@ -42,6 +43,18 @@ n8n_mcp_server = MCPTools(
 )
 logger.info(f"🔌 Conector MCP preparado para apontar as águas do n8n em: {os.getenv('MCP_URL')}")
 
+# Inicializa o conector do Reclaim via protocolo MCP (SSE)
+# Busca a URL do ambiente (Infisical) ou usa o padrão local
+reclaim_mcp_url = os.getenv("RECLAIM_MCP_URL") or "http://localhost:3000/mcp"
+
+reclaim_mcp_server = MCPTools(
+    transport="sse",
+    server_params=SSEClientParams(
+        url=reclaim_mcp_url
+    )
+)
+logger.info(f"📅 Conector Reclaim preparado apontando para: {reclaim_mcp_url}")
+
 # --- AGENTE: O VELHO DO RIO ---
 # Aqui injetamos a alma que você já tinha no prompt antigo, 
 # mas otimizada para o Agno orquestrar.
@@ -52,7 +65,7 @@ velho_rio = Agent(
     db=storage,
     read_chat_history=True,
     num_history_messages=15, # Um pouco mais de memória para identificar padrões longos
-    tools=[consultar_acervo_musical, registrar_ponto_trabalho, n8n_mcp_server],
+    tools=[consultar_acervo_musical, registrar_ponto_trabalho, n8n_mcp_server, reclaim_mcp_server],
     debug_mode=True, # Mostra o debug interno do Agno, listando as tools carregadas via MCP
  description="""
         Você é o Velho do Rio 🌿🕶️, um mentor cyber-xamã que habita a margem entre o código e o inconsciente.

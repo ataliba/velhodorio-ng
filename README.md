@@ -22,46 +22,48 @@ Construído em **Python**, usando o framework **[Agno v2](https://github.com/agn
 
 ## 🚀 Como Executar
 
-### Pré-requisitos
-* Python 3.10+
-* CLI do [Infisical](https://infisical.com/) devidamente instalada e autenticada.
-* Arquivo `.infisical.json` linkado ao projeto para injeção correta das variáveis.
+### 📦 Instalação Automatizada (Recomendado)
+Para facilitar a replicação em novos servidores ou containers (LXC Proxmox), utilize os scripts de setup:
 
-### 1. Preparar o Ambiente
-Crie e ative seu ambiente virtual:
+*   **Agente**: `./setup_velhodorio.sh` (Instala apenas o Python e o Agente).
+*   **Reclaim MCP**: `./setup_mcp_reclaim.sh` (Instala Node.js e o Servidor de Calendário).
+
+---
+
+### 1. Preparar o Ambiente Manualmente
+Se preferir o modo manual:
 ```bash
 python -m venv venv
 source venv/bin/activate
-```
-
-### 2. Instalar as Dependências
-Todas as bibliotecas necessárias constam no `requirements.txt`:
-```bash
 pip install -r requirements.txt
 ```
 
-### 3. Rodar o Agente via Infisical
-Para garantir que as variáveis de ambiente sensíveis (como `OPENAI_API_KEY`, senhas e `MCP_TOKEN`) sejam injetadas no processo sem precisar de um arquivo local vulnerável, execute:
+### 2. Rodar o Agente via Infisical
 ```bash
 infisical run -- python velhodorio.py
 ```
-*(Opcional: use nohup, pm2 ou systemd para mantê-lo rodando em background em seu servidor).*
+
+---
+
+## 🌐 Arquitetura MCP Distribuída
+O Velho do Rio utiliza o protocolo **MCP** para expandir suas capacidades. Agora, o sistema está preparado para rodar de forma distribuída:
+
+1.  **Variável `RECLAIM_MCP_URL`**: Defina no Infisical a URL do seu servidor de ferramentas (ex: `http://10.0.0.50:3000/mcp`). 
+2.  **SSE Transport**: A comunicação é feita via HTTP/SSE, permitindo que o servidor MCP rode em um container separado do Agente.
 
 ---
 
 ## 🔐 Variáveis de Ambiente Esperadas (Infisical)
-O Agente necessita que as seguintes chaves estejam no cofre para funcionar:
-* `OPENAI_API_KEY`: Para processamento com GPT-4o-mini
-* `MONGODB_USER` / `MONGODB_PASS`: Acesso ao banco de discos.
-* `WEBHOOK_USER` / `WEBHOOK_PASS`: Autenticação HTTP Basic no nodo do n8n.
-* `MCP_URL` / `MCP_TOKEN`: Endereço SSE e Token Bearer de autorização do seu servidor MCP do n8n.
+* `OPENAI_API_KEY`: Processamento GPT-4o-mini.
+* `RECLAIM_TOKEN`: Chave de API do Reclaim.ai (usada pelo servidor MCP).
+* `RECLAIM_MCP_URL`: (Opcional) URL do servidor MCP do Reclaim.
+* `MCP_URL` / `MCP_TOKEN`: Configurações do n8n MCP.
 
 ---
 
 ## 📜 Princípios e Persona
 > *- "Se o pedido for objetivo, responda de forma DIRETA, organizada e sem cabeçalhos mecânicos."*
 > *- "Mantenha o tom de quem enxerga além dos logs, mas fale como um parceiro de caminhada."*
-> *- "O acervo são memórias guardadas e o sistema é como o fluxo do rio."*
 
 ---
 *Mantenha-se atento ao fluxo do rio.* 🌊
