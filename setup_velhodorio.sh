@@ -51,26 +51,57 @@ source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 5. Instalação e Configuração do PM2
-echo "🚀 Instalando PM2 para gerenciamento de processos..."
-# Garante que o npm existe (instala no Debian se necessário)
-if ! command -v npm &> /dev/null; then
-    if command -v apt-get &> /dev/null; then sudo apt-get install -y nodejs npm; fi
+# 5. Criação do serviço de inicialização (Systemd ou OpenRC)
+if command -v systemctl &> /dev/null; then
+    echo "⚙️ Configurando serviço Systemd (Debian/Ubuntu/Alma)..."
+    SERVICE_FILE="/etc/systemd/system/velhodorio.service"
+    sudo bash -c "cat <<EOF > $SERVICE_FILE
+[Unit]
+Description=Agente Velho do Rio - Cyber Xamã
+After=network.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$PROJECT_DIR
+ExecStart=/usr/bin/infisical run -- $PROJECT_DIR/venv/bin/python $PROJECT_DIR/velhodorio.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF"
+    sudo systemctl daemon-reload
+    echo "✅ Serviço systemd criado."
+elif command -v rc-service &> /dev/null; then
+    echo "🏔️ Configurando serviço OpenRC (Alpine)..."
+    INIT_FILE="/etc/init.d/velhodorio"
+    INFISICAL_PATH=$(which infisical || echo "/usr/bin/infisical")
+    
+    sudo bash -c "cat <<EOF > $INIT_FILE
+#!/sbin/openrc-run
+
+# Usando supervise-daemon para manter o processo vivo
+supervisor=\"supervise-daemon\"
+name=\"velhodorio\"
+description=\"Agente Velho do Rio - Cyber Xamã\"
+
+command=\"$INFISICAL_PATH\"
+command_args=\"run -- $PROJECT_DIR/venv/bin/python $PROJECT_DIR/velhodorio.py\"
+command_user=\"$USER\"
+directory=\"$PROJECT_DIR\"
+
+# Logs para debug
+output_log=\"$PROJECT_DIR/agent_output.log\"
+error_log=\"$PROJECT_DIR/agent_error.log\"
+
+depend() {
+    need net
+}
+EOF"
+    sudo chmod +x "$INIT_FILE"
+    sudo rc-update add velhodorio default
+    echo "✅ Serviço OpenRC criado e habilitado no boot."
 fi
-sudo npm install -g pm2
-
-echo "⚙️ Configurando o Velho do Rio no PM2..."
-pm2 delete velhodorio 2>/dev/null || true
-# Rodamos através do Infisical e apontamos para o interpretador do venv
-pm2 start "infisical run -- $PROJECT_DIR/venv/bin/python $PROJECT_DIR/velhodorio.py" --name velhodorio
-
-# Salvar para persistir no boot
-pm2 save
-
-echo ""
-echo "✨ Agente Velho do Rio rodando via PM2!"
-echo "👉 Veja a sabedoria: pm2 logs velhodorio"
-echo "👉 Painel de controle: pm2 monit"
-echo "👉 Status: pm2 list"
 
 echo "✨ Agente instalado! Lembre-se de configurar RECLAIM_MCP_URL no Infisical."
