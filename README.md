@@ -201,4 +201,6 @@ O Velho do Rio utiliza o protocolo **MCP** para expandir suas capacidades. O sis
 > *- "Mantenha o tom de quem enxerga além dos logs, mas fale como um parceiro de caminhada."*
 
 ---
+Made by Me, Gemini, Claude, Kiro and Codex.
+
 *Mantenha-se atento ao fluxo do rio.* 🌊
