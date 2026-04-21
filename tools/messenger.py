@@ -110,7 +110,7 @@ def send_audio_evolution(chat_id: str, audio_path: str) -> bool:
         return False
 
 
-def send_audio_telegram(chat_id: str, audio_path: str, caption: str = None) -> bool:
+def send_audio_telegram(chat_id: str, audio_path: str) -> bool:
     """
     Envia um arquivo de áudio local como mensagem de voz via Telegram.
     """
@@ -121,12 +121,7 @@ def send_audio_telegram(chat_id: str, audio_path: str, caption: str = None) -> b
     try:
         with open(audio_path, "rb") as audio:
             files = {"voice": audio}
-            data = {"chat_id": chat_id}
-            if caption:
-                data["caption"] = caption
-                data["parse_mode"] = "Markdown"
-            
-            resp = requests.post(url, data=data, files=files, timeout=30)
+            resp = requests.post(url, data={"chat_id": chat_id}, files=files, timeout=30)
             resp.raise_for_status()
             logger.info(f"🎙️ Telegram: áudio enviado para {chat_id}")
             return True
@@ -137,7 +132,7 @@ def send_audio_telegram(chat_id: str, audio_path: str, caption: str = None) -> b
 
 def dispatch(source: str, chat_id: str, text: str, audio_path: str = None) -> bool:
     """
-    Roteador central. Prioriza áudio se disponível para evitar mensagens duplicadas.
+    Roteador central. Envia texto obrigatoriamente e áudio se disponível.
     """
     target_id = chat_id
     if source == "telegram":
@@ -150,20 +145,20 @@ def dispatch(source: str, chat_id: str, text: str, audio_path: str = None) -> bo
 
     logger.info(f"📤 Despachando para {source} | Destino: {target_id}")
 
-    # 1. Se houver áudio, envia apenas o áudio (com a transcrição como legenda se suportado)
-    if audio_path and os.path.exists(audio_path):
-        logger.info(f"🎙️ Despachando áudio para {source}...")
-        if source == "evolution":
-            # WhatsApp/Evolution geralmente não suporta legenda em PTT, então enviamos só o áudio
-            return send_audio_evolution(target_id, audio_path)
-        elif source == "telegram":
-            # Telegram suporta legenda no áudio (sendVoice)
-            return send_audio_telegram(target_id, audio_path, caption=text)
-    
-    # 2. Caso contrário (ou se o áudio não existir), envia apenas o texto
+    # 1. Envio de Texto (Obrigatório / Base)
+    text_ok = False
     if source == "evolution":
-        return send_evolution(target_id, text)
+        text_ok = send_evolution(target_id, text)
     elif source == "telegram":
-        return send_telegram(target_id, text)
+        text_ok = send_telegram(target_id, text)
+
+    # 2. Envio de Áudio (Opcional - se gerado)
+    if audio_path and os.path.exists(audio_path):
+        logger.info(f"🎙️ Despachando áudio adicional para {source}...")
+        if source == "evolution":
+            send_audio_evolution(target_id, audio_path)
+        elif source == "telegram":
+            # Enviamos o áudio puro, sem legenda, para evitar erros de Markdown e duplicidade visual
+            send_audio_telegram(target_id, audio_path)
     
-    return False
+    return text_ok
