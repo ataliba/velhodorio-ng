@@ -155,7 +155,7 @@ def iniciar_consumidor():
                     
                     # Decisão: Gera áudio se a API KEY estiver presente 
                     # E se a entrada foi áudio OU se você quiser áudio sempre
-                    gerar_audio = (message_type == 'audio' or os.getenv("VOICE_ALWAYS", "true") == "true")
+                    gerar_audio = (message_type == 'audio' or os.getenv("VOICE_ALWAYS", "false") == "true")
                     
                     if eleven_api_key and resposta and gerar_audio:
                         try:
