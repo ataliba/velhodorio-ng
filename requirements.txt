@@ -11,3 +11,9 @@ google-auth-oauthlib
 mcp
 requests
 elevenlabs
+ddgs
+fastapi
+uvicorn[standard]
+google-genai
+qdrant-client
+psycopg[binary]

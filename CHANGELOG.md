@@ -2,6 +2,37 @@
 
 Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 
+## [1.5.0] - 2026-04-21
+
+### ✨ Adicionado
+- **AgentOS (`app.py`)**: O time agora pode ser servido como API REST FastAPI via `agno.os.AgentOS` na porta `7777`. Inclui Swagger, streaming SSE, histórico por sessão e tracing. Independente do consumidor SQS.
+- **Systemd unit files**: `velhodorio.service` e `velhodorio-agentos.service` prontos para deploy em Debian/Ubuntu.
+- **Persistência PostgreSQL**: Suporte a PostgreSQL como backend de sessões. Se `POSTGRES_URL`, `POSTGRES_USER` e `POSTGRES_PASS` estiverem definidos no Infisical, o Postgres é usado automaticamente — senão cai no SQLite como fallback.
+
+### 🛠️ Alterado
+- **Padrão `_connect()` para MCPs**: Substituído o padrão `async with` aninhado por um helper `_connect()` que tenta cada MCP individualmente. Falhas são isoladas — um MCP offline não derruba os outros nem o processo.
+- **Reclaim MCP usa `streamable-http`**: Trocado o transport do Reclaim de `sse` para `streamable-http` com `StreamableHTTPClientParams`, compatível com o servidor `reclaim-mcp-server` de Erik MacKinnon.
+- **`QDRANT_API_TOKEN` → `QDRANT_API_KEY`**: Corrigido o nome da variável de ambiente para bater com o que está no Infisical.
+- **Import path do GeminiEmbedder**: Corrigido de `agno.knowledge.embedder.gemini` para `agno.knowledge.embedder.google` (nome real do módulo instalado).
+- **`PostgresDb` usa `db_schema`**: Corrigido argumento `schema` → `db_schema` conforme API do Agno.
+- **`ddgs` + `google-genai` + `psycopg[binary]` + `qdrant-client`**: Adicionadas dependências ao `requirements.txt`.
+
+---
+
+## [1.4.0] - 2026-04-21
+
+### ✨ Adicionado
+- **Agente Terapeuta**: Novo membro do time com acesso à base vetorial `rag_terapeuta` no Qdrant via embeddings Gemini (`models/text-embedding-004`). Atua como âncora terapêutica para questões emocionais e de saúde mental delegadas pelo orquestrador.
+- **DuckDuckGo nativo no Pesquisador**: Integração com `DuckDuckGoTools` do Agno (lib `ddgs`), dando ao agente busca web e busca de notícias sem depender exclusivamente do MCP Escavador.
+
+### 🛠️ Alterado
+- **Arquitetura Async Completa (`velhodorio.py`)**: Refatorado para `asyncio`. Todos os `MCPTools` agora são inicializados via `async with` no startup, garantindo que a conexão SSE seja estabelecida de verdade antes de qualquer mensagem ser processada. O loop principal usa `arun()` em vez de `run()`.
+- **`_null_ctx`**: Adicionado context manager nulo para MCPs offline, permitindo degradação graciosa sem `if/else` aninhados.
+- **MCPs dos agentes secundários corrigidos**: `Agendador` agora recebe `reclaim_mcp_server` (que estava sendo criado mas nunca entregue). Todos os agentes especialistas recebem seus MCPs já com conexão ativa.
+- **README atualizado**: Tabela de agentes com MCPs correspondentes, tabela completa de variáveis de ambiente, remoção de artefatos de edição (números de linha soltos), correção de `RECLAIM_MCP_URL` → `RECLAIM_URL`.
+
+---
+
 ## [1.3.0] - 2026-04-21
 
 ### ✨ Adicionado

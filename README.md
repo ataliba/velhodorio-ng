@@ -10,22 +10,36 @@ Construído em **Python**, usando o framework **[Agno v2](https://github.com/agn
 
 ## ✨ Características e Arquitetura
 
-* **Arquitetura Multi-Agente (Agno Team):** O Velho do Rio agora lidera um time de especialistas, delegando tarefas de acordo com a necessidade.
+* **Arquitetura Multi-Agente (Agno Team):** O Velho do Rio lidera um time de especialistas, delegando tarefas de acordo com a necessidade.
 * **Modelos Especializados (OpenRouter):** Utiliza DeepSeek V3 para orquestração, DeepSeek R1 para raciocínio financeiro e Claude 3.5 Haiku para pesquisas rápidas.
-* **Conexão MCP (Model Context Protocol):** Comunicação direta e assíncrona via *Server-Sent Events* (SSE) com fluxos avançados do **n8n**.
+* **Conexão MCP com Degradação Graciosa:** Cada servidor MCP é conectado individualmente no startup via `_connect()`. Falhas são isoladas — um MCP offline não derruba os outros nem o processo.
 * **Consumo de Filas (AWS SQS):** Trabalha de forma reativa e não-bloqueante consumindo payloads vindos do WhatsApp (API Evolution) e Telegram.
-* **Segurança e Cofre de Segredos:** Configuração centralizada e segura utilizando o **Infisical**. Zero chaves ou credenciais em hardcode (API OpenAI, Tokens MCP, senhas do Webhook e credenciais do MongoDB).
-* **Persistência de Sessões:** Todo o histórico conversacional é armazenado localmente em um banco de dados **SQLite** isolando os contextos por usuário (`chatId`).
+* **Segurança e Cofre de Segredos:** Configuração centralizada e segura utilizando o **Infisical**. Zero chaves ou credenciais em hardcode.
+* **Persistência de Sessões:** Histórico conversacional armazenado por usuário (`chatId`) em **PostgreSQL** (recomendado) ou **SQLite** como fallback local.
 * **Ferramentas Locais Customizadas:**
     * 🎵 `consultar_acervo_musical`: Consulta nativa no MongoDB da coleção de discos.
-    * ⏱️ `registrar_ponto_trabalho`: Gatilho de automação n8n para ponto eletrônico com envio preciso de `date_time` (timestamp extraído dos metadados).
-21: 
-22: ### 🛠️ Utilitários de Desenvolvimento
-23: *   🧹 `limpa_fila.py`: Script para "drenar" a fila SQS. Útil quando você insere dados de teste inválidos e quer limpar a fila sem que o agente os processe.
-24:     ```bash
-25:     # Execução rápida:
-26:     python limpa_fila.py
-27:     ```
+    * ⏱️ `registrar_ponto_trabalho`: Gatilho de automação n8n para ponto eletrônico.
+
+---
+
+## 🤖 Time de Agentes
+
+| Agente | Modelo | Especialidade | MCPs / Knowledge |
+|---|---|---|---|
+| **Velho do Rio** (orquestrador) | DeepSeek V3 | Interface central, delega tarefas | n8n central |
+| **Agendador** | DeepSeek V3 | Google Calendar, Todoist, Reclaim.io, Jira | `MCP_AGENDADOR`, `RECLAIM_URL` |
+| **Finanças** | DeepSeek R1 | Cripto, CoinMarketCap, P&L | `MCP_FINANCEIRO` |
+| **Pesquisador** | Claude 3.5 Haiku | Busca web, inteligência de mercado | `MCP_ESCAVADOR` + DuckDuckGo nativo |
+| **Terapeuta** | Claude 3.5 Haiku | Suporte emocional e saúde mental | Qdrant `rag_terapeuta` (Gemini embeddings) |
+
+---
+
+## 🛠️ Utilitários de Desenvolvimento
+
+* 🧹 `limpa_fila.py`: Script para "drenar" a fila SQS. Útil quando você insere dados de teste inválidos e quer limpar a fila sem que o agente os processe.
+    ```bash
+    python limpa_fila.py
+    ```
 
 ---
 
@@ -54,20 +68,130 @@ infisical run -- python velhodorio.py
 
 ---
 
-## 🌐 Arquitetura MCP Distribuída
-O Velho do Rio utiliza o protocolo **MCP** para expandir suas capacidades. Agora, o sistema está preparado para rodar de forma distribuída:
+## 🐘 Configurando o PostgreSQL (Opcional)
 
-1.  **Variável `RECLAIM_MCP_URL`**: Defina no Infisical a URL do seu servidor de ferramentas (ex: `http://10.0.0.50:3000/mcp`). 
-2.  **SSE Transport**: A comunicação é feita via HTTP/SSE, permitindo que o servidor MCP rode em um container separado do Agente.
+Por padrão o agente usa SQLite local. Se `POSTGRES_URL`, `POSTGRES_USER` e `POSTGRES_PASS` estiverem definidos no Infisical, o Postgres é usado automaticamente.
+
+### Criando o banco
+
+```sql
+-- Conecte como superusuário (ex: psql -U postgres)
+
+-- 1. Cria o usuário
+CREATE USER velhodorio WITH PASSWORD 'sua_senha_aqui';
+
+-- 2. Cria o banco
+CREATE DATABASE velhodorio OWNER velhodorio;
+
+-- 3. Garante os privilégios
+GRANT ALL PRIVILEGES ON DATABASE velhodorio TO velhodorio;
+
+-- 4. (Postgres 15+) Garante acesso ao schema public
+\c velhodorio
+GRANT ALL ON SCHEMA public TO velhodorio;
+```
+
+O Agno cria as tabelas de sessão automaticamente no primeiro boot — não precisa rodar migrations.
+
+### Configurando no Infisical
+
+```
+POSTGRES_URL  = postgresql://localhost:5432/velhodorio
+POSTGRES_USER = velhodorio
+POSTGRES_PASS = sua_senha_aqui
+```
+
+> A URL não deve conter usuário/senha — eles são injetados separadamente pelo código para evitar exposição em logs.
+
+---
+
+## 🖥️ AgentOS — API REST + Playground
+
+Além do consumidor SQS (`velhodorio.py`), o time pode ser servido como uma **API FastAPI completa** via AgentOS:
+
+```bash
+infisical run -- python app.py
+```
+
+Isso sobe um servidor em `http://0.0.0.0:7777` com:
+- **`/docs`** — Swagger com todos os endpoints gerados automaticamente
+- **Streaming SSE** — respostas em tempo real
+- **Histórico por sessão** — contexto isolado por `session_id`
+- **Tracing** — rastreamento de execuções no banco SQLite
+
+Para usar via `curl` ou qualquer cliente HTTP:
+```bash
+# Enviar mensagem para o time
+curl -X POST http://localhost:7777/v1/teams/velho-rio/runs \
+  -H "Content-Type: application/json" \
+  -d '{"message": "como estou me sentindo essa semana?", "session_id": "ataliba"}'
+```
+
+> Os dois modos são independentes — você pode rodar `velhodorio.py` (SQS) e `app.py` (API) ao mesmo tempo, cada um com seu próprio processo.
+
+### Systemd
+
+O projeto inclui dois unit files prontos. Para instalar ambos:
+
+```bash
+# 1. Edite os arquivos substituindo YOUR_USER pelo seu usuário
+nano velhodorio.service
+nano velhodorio-agentos.service
+
+# 2. Copie para o systemd
+sudo cp velhodorio.service /etc/systemd/system/
+sudo cp velhodorio-agentos.service /etc/systemd/system/
+
+# 3. Ative e suba
+sudo systemctl daemon-reload
+sudo systemctl enable velhodorio velhodorio-agentos
+sudo systemctl start velhodorio velhodorio-agentos
+
+# Acompanhar logs
+journalctl -u velhodorio -f
+journalctl -u velhodorio-agentos -f
+```
+
+| Serviço | Arquivo | Função |
+|---|---|---|
+| `velhodorio` | `velhodorio.service` | Consumidor SQS — responde no WhatsApp/Telegram |
+| `velhodorio-agentos` | `velhodorio-agentos.service` | API REST na porta 7777 |
+---
+
+## 🌐 Arquitetura MCP Distribuída
+
+O Velho do Rio utiliza o protocolo **MCP** para expandir suas capacidades. O sistema está preparado para rodar de forma distribuída — cada servidor MCP pode estar em uma máquina ou container separado.
+
+* **SSE Transport**: A comunicação é feita via HTTP/SSE.
+* **Degradação graciosa**: Se um servidor MCP estiver offline no startup, o agente correspondente sobe sem aquele conjunto de ferramentas. O log de inicialização mostra o status de cada conector.
 
 ---
 
 ## 🔐 Variáveis de Ambiente Esperadas (Infisical)
-* `OPENAI_API_KEY`: Utilizada para modelos legados ou auxiliares.
-* `OPENROUTER_API_KEY`: Chave para acessar DeepSeek e Claude via OpenRouter.
-* `RECLAIM_TOKEN`: Chave de API do Reclaim.ai (usada pelo servidor MCP).
-* `RECLAIM_MCP_URL`: (Opcional) URL do servidor MCP do Reclaim.
-* `MCP_URL` / `MCP_TOKEN`: Configurações do n8n MCP.
+
+| Variável | Descrição |
+|---|---|
+| `OPENROUTER_API_KEY` | Chave para acessar DeepSeek e Claude via OpenRouter |
+| `OPENAI_API_KEY` | Utilizada para modelos legados ou auxiliares |
+| `MCP_URL` | URL do servidor MCP central (n8n) |
+| `MCP_TOKEN` | Token de autenticação dos servidores MCP |
+| `MCP_AGENDADOR` | URL do MCP do Agendador (Todoist, Jira, etc.) |
+| `RECLAIM_URL` | URL do servidor MCP do Reclaim.ai |
+| `RECLAIM_TOKEN` | Chave de API do Reclaim.ai |
+| `MCP_FINANCEIRO` | URL do MCP Financeiro (CoinMarketCap, etc.) |
+| `MCP_ESCAVADOR` | URL do MCP do Pesquisador (Brave, SerpAPI, etc.) |
+| `GOOGLE_API_KEY` | Chave Google para embeddings Gemini (base rag_terapeuta) |
+| `QDRANT_URL` | URL da instância Qdrant |
+| `QDRANT_API_KEY` | API Key do Qdrant |
+| `EVOLUTION_URL` | URL base da instância Evolution API (WhatsApp) |
+| `EVOLUTION_INSTANCE` | Nome da instância Evolution |
+| `EVOLUTION_API_KEY` | API Key da Evolution |
+| `TELEGRAM_BOT_TOKEN` | Token do bot Telegram |
+| `WEBHOOK_USER` / `WEBHOOK_PASS` | Credenciais do webhook n8n (ponto eletrônico) |
+| `MONGODB_USER` / `MONGODB_PASS` | Credenciais do MongoDB (acervo musical) |
+| `POSTGRES_URL` | URL do PostgreSQL ex: `postgresql://host:5432/velhodorio` (opcional — se ausente usa SQLite) |
+| `POSTGRES_USER` | Usuário do PostgreSQL |
+| `POSTGRES_PASS` | Senha do PostgreSQL |
 
 ---
 
