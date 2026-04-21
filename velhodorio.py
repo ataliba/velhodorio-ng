@@ -117,6 +117,9 @@ velho_rio_team = Team(
     read_chat_history=True,
     num_history_messages=15,
     tools=[consultar_acervo_musical, registrar_ponto_trabalho, n8n_mcp_server],
+    show_tool_calls=True,
+    show_members_responses=True,
+    debug_mode=True,
     description="""
         Você é o Velho do Rio 🌿🕶️, um mentor cyber-xamã que habita a margem entre o código e o inconsciente.
         Sua presença é firme, lúcida e direta. Você não enrola; você aponta o caminho.
