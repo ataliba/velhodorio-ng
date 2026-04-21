@@ -1,11 +1,3 @@
-import boto3
-import json
-import logging
-import os
-import asyncio
-import shutil
-import requests as _requests
-from elevenlabs import ElevenLabs, save
 from agno.agent import Agent
 from agno.team import Team
 from agno.models.openrouter import OpenRouter
@@ -22,6 +14,12 @@ from agents.agendador import get_agendador
 from agents.financas import get_financas
 from agents.pesquisador import get_pesquisador
 
+import os
+import time
+import json
+import logging
+import requests as _requests
+from elevenlabs import ElevenLabs, save
 
 # --- LOGS RAIZ ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -36,13 +34,11 @@ storage = SqliteDb(session_table="velho_rio_sessions", db_file="velho_rio.db")
 
 calendar_tools = GoogleCalendarTools(
     credentials_path="credentials.json",
-    token_path="token.json" # Ele vai gerar esse arquivo sozinho após o login
+    token_path="token.json"
 )
 
 def _reclaim_online(url: str, timeout: int = 3) -> bool:
-    """Verifica se o servidor Reclaim MCP está acessível."""
     try:
-        # Bate na raiz do servidor (não na rota /mcp) para checar conectividade
         base = url.rsplit("/mcp", 1)[0]
         _requests.get(base, timeout=timeout)
         return True
@@ -57,9 +53,8 @@ n8n_mcp_server = MCPTools(
         headers={"Authorization": f"Bearer {os.getenv('MCP_TOKEN')}"}
     )
 )
-logger.info(f"🔌 Conector MCP n8n preparado em: {os.getenv('MCP_URL')}")
 
-# 2. Conector MCP_AGENDADOR (Todoist, Calendar, Jira)
+# 2. Conector MCP_AGENDADOR
 mcp_agendador_url = os.getenv("MCP_AGENDADOR") or "http://localhost/agendador"
 mcp_agendador_server = None
 if _reclaim_online(mcp_agendador_url):
@@ -70,9 +65,6 @@ if _reclaim_online(mcp_agendador_url):
             headers={"Authorization": f"Bearer {os.getenv('MCP_TOKEN')}"}
         )
     )
-    logger.info(f"📅 MCP Agendador online → {mcp_agendador_url}")
-else:
-    logger.warning(f"⚠️  MCP Agendador offline ou URL ausente ({mcp_agendador_url}) — agendador sobe sem as tools de Todoist/Jira.")
 
 # 3. Conector Reclaim (SSE)
 reclaim_mcp_url = os.getenv("RECLAIM_URL") or "http://localhost:3000/mcp"
@@ -82,11 +74,8 @@ if _reclaim_online(reclaim_mcp_url):
         transport="sse",
         server_params=SSEClientParams(url=reclaim_mcp_url)
     )
-    logger.info(f"📅 Reclaim MCP online → {reclaim_mcp_url}")
-else:
-    logger.warning(f"⚠️  Reclaim MCP offline em {reclaim_mcp_url} — agente sobe sem ele.")
 
-# 4. Conector MCP_FINANCEIRO (Cripto, FastAPI Trader)
+# 4. Conector MCP_FINANCEIRO
 mcp_financeiro_url = os.getenv("MCP_FINANCEIRO") or "http://localhost/financeiro"
 mcp_financeiro_server = None
 if _reclaim_online(mcp_financeiro_url):
@@ -97,11 +86,8 @@ if _reclaim_online(mcp_financeiro_url):
             headers={"Authorization": f"Bearer {os.getenv('MCP_TOKEN')}"}
         )
     )
-    logger.info(f"💰 MCP Financeiro online → {mcp_financeiro_url}")
-else:
-    logger.warning(f"⚠️  MCP Financeiro offline ou URL ausente ({mcp_financeiro_url}) — agente de finanças sobe sem as tools de Trading.")
 
-# 5. Conector MCP_ESCAVADOR (Pesquisa Técnica)
+# 5. Conector MCP_ESCAVADOR
 mcp_escavador_url = os.getenv("MCP_ESCAVADOR") or "http://localhost/escavador"
 mcp_escavador_server = None
 if _reclaim_online(mcp_escavador_url):
@@ -112,17 +98,21 @@ if _reclaim_online(mcp_escavador_url):
             headers={"Authorization": f"Bearer {os.getenv('MCP_TOKEN')}"}
         )
     )
-    logger.info(f"🕵️‍♂️ MCP Escavador online → {mcp_escavador_url}")
-else:
-    logger.warning(f"⚠️  MCP Escavador offline ou URL ausente ({mcp_escavador_url}) — pesquisador sobe sem as tools de busca.")
 
-# --- CONFIGURAÇÃO DO LÍDER (O VELHO DO RIO) ---
+# --- CONFIGURAÇÃO DE MODELOS ---
 deepseek_v3 = OpenRouter(id="deepseek/deepseek-chat")
 
-leader = Agent(
+# --- INICIALIZAÇÃO DOS ESPECIALISTAS ---
+agendador = get_agendador(tools=[mcp_agendador_server, calendar_tools])
+financas = get_financas(tools=[mcp_financeiro_server])
+pesquisador = get_pesquisador(tools=[mcp_escavador_server])
+
+# --- INICIALIZAÇÃO DO TIME (ORQUESTRADOR VELHO DO RIO) ---
+velho_rio_team = Team(
     name="Velho do Rio",
     model=deepseek_v3,
-    role="Interface Central e Orquestrador",
+    role="Interface Central e Orquestrador Cyber-Xamã",
+    members=[agendador, financas, pesquisador],
     db=storage,
     read_chat_history=True,
     num_history_messages=15,
@@ -134,7 +124,7 @@ leader = Agent(
     """,
     instructions=[
         "Você é o Velho do Rio. Pragmático, visionário e direto.",
-        "Delegue tarefas para os especialistas (Agendador, Finanças, Pesquisador) quando necessário.",
+        "Delegue tarefas para seus membros (Agendador, Finanças, Pesquisador) quando necessário.",
         "Use jargões corporativos e humor sagaz quando apropriado, mas mantenha a sabedoria xamânica.",
         "Não faça o trabalho braçal, apenas coordene a inteligência do time.",
         "REGRA DE OURO: Utilidade e Clareza acima de tudo. Sem floreios desnecessários.",
@@ -144,20 +134,10 @@ leader = Agent(
     markdown=True,
 )
 
-# 1. Criamos os especialistas passando as ferramentas necessárias
-agendador = get_agendador(tools=[mcp_agendador_server, calendar_tools])
-financas = get_financas(tools=[mcp_financeiro_server])
-pesquisador = get_pesquisador(tools=[mcp_escavador_server])
-
-# 2. Montamos o time
-velho_rio_team = Team(
-    agents=[leader, agendador, financas, pesquisador],
-    show_tool_calls=True,
-)
-
 def iniciar_consumidor():
+    logger.info("🌿 Velho do Rio (Team v2) ouvindo as águas do SQS...")
+    import boto3
     sqs = boto3.client('sqs', region_name=AWS_REGION)
-    logger.info("🌿 O Velho do Rio está de vigia na beira da fila SQS...")
 
     while True:
         try:
@@ -169,99 +149,28 @@ def iniciar_consumidor():
 
             if 'Messages' in response:
                 for msg in response['Messages']:
-                    receipt_handle = msg['ReceiptHandle']
-                    raw_body = json.loads(msg['Body'])
+                    body = json.loads(msg['Body'])
+                    prompt = body.get("prompt", "")
+                    chat_id = body.get("chat_id")
                     
-                    # Trata se o n8n mandar uma lista [ { ... } ] ou objeto direto { ... }
-                    body = raw_body[0] if isinstance(raw_body, list) else raw_body
+                    logger.info(f"📩 Mensagem recebida de {chat_id}: {prompt}")
 
-                    # Extração seguindo a estrutura de metadata/content
-                    content    = body.get('content', '')
-                    metadata   = body.get('metadata', {})
-                    
-                    session_id   = metadata.get('sessionId') or metadata.get('chatId', 'geral')
-                    chat_id      = metadata.get('chatId', '')
-                    source       = metadata.get('source', '')
-                    date_time    = metadata.get('date_time', '')
-                    message_type = metadata.get('messageType', 'text') # Novo campo
+                    # Executa o time
+                    # O Team no Agno v2 retorna um objeto de resposta
+                    res = velho_rio_team.run(prompt)
+                    resposta_texto = res.content if hasattr(res, 'content') else str(res)
 
-                    logger.info(f"📩 Chamado de: {session_id} | Canal: {source} | Tipo: {message_type}")
-
-                    # Prepara o contexto do sistema
-                    system_context = []
-                    if date_time:
-                        system_context.append(f"Horário: {date_time}")
-                    if message_type == 'audio':
-                        system_context.append("Mensagem enviada via ÁUDIO (transcrita)")
-
-                    prompt_final = content
-                    if system_context:
-                        prompt_final = f"[Informação do Sistema - {', '.join(system_context)}]\n\n{content}"
-
-                    # O Agno Team processa a resposta
-                    run_response = asyncio.run(velho_rio_team.arun(prompt_final, session_id=str(session_id)))
-                    resposta = run_response.content
-
-                    # Geração de Voz (ElevenLabs)
-                    audio_path = None
-                    eleven_api_key = os.getenv("ELEVENLABS_API_KEY")
-                    
-                    # Decisão: Gera áudio se a API KEY estiver presente 
-                    # E se a entrada foi áudio OU se você quiser áudio sempre
-                    gerar_audio = (message_type == 'audio' or os.getenv("VOICE_ALWAYS", "false") == "true")
-                    
-                    if eleven_api_key and resposta and gerar_audio:
-                        try:
-                            logger.info("🎙️ Gerando voz da sabedoria...")
-                            client = ElevenLabs(api_key=eleven_api_key)
-                            voice_id = os.getenv("ELEVENLABS_VOICE_ID") or "pNInz6obpg8ndclJ9tq9" 
-                            
-                            audio_gen = client.text_to_speech.convert(
-                                text=resposta,
-                                voice_id=voice_id,
-                                model_id="eleven_multilingual_v2"
-                            )
-                            
-                            audio_path = f"temp_voice_{session_id}.mp3"
-                            save(audio_gen, audio_path)
-                        except Exception as ve:
-                            logger.error(f"❌ Falha ao gerar voz: {ve}")
-
-                    # Exibe no terminal para acompanhamento
-                    print(f"\n👴 VELHO: {resposta}\n")
-
-                    # Despacha a resposta para o canal de origem (Texto + Áudio)
-                    if source and chat_id:
-                        dispatch(source, chat_id, resposta, audio_path=audio_path)
-                    else:
-                        logger.warning("⚠️ 'source' ou 'chatId' ausente no metadata — resposta não enviada ao canal.")
-
-                    # Limpeza do arquivo temporário
-                    if audio_path and os.path.exists(audio_path):
-                        os.remove(audio_path)
-
+                    # Despacha a resposta
+                    dispatch(chat_id, resposta_texto)
 
                     # Deleta da fila
-                    sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=receipt_handle)
-                    logger.info("✅ Mensagem processada.")
-            
+                    sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=msg['ReceiptHandle'])
         except Exception as e:
-            logger.error(f"❌ Falha no fluxo: {e}")
-            import time
+            logger.error(f"💥 Erro no ciclo do consumidor: {e}")
             time.sleep(5)
 
 if __name__ == "__main__":
-    # Garante que as chaves essenciais estão presentes
-    openai_key = os.getenv("OPENAI_API_KEY")
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    
-    if not openai_key:
-        logger.warning("⚠️  A variável OPENAI_API_KEY não foi encontrada (necessária para alguns componentes legados).")
-    
-    if not openrouter_key:
-        logger.error("❌ A variável OPENROUTER_API_KEY não foi encontrada! O time de agentes não funcionará sem ela.")
-    
-    if openrouter_key:
-        iniciar_consumidor()
+    if not os.getenv("OPENROUTER_API_KEY"):
+        logger.error("❌ OPENROUTER_API_KEY obrigatória!")
     else:
-        logger.error("🛑 Abortando: OPENROUTER_API_KEY é obrigatória para esta versão.")
+        iniciar_consumidor()
