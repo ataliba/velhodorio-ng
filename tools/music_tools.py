@@ -79,9 +79,8 @@ def _parse_query(consulta: str) -> dict:
             parsed["title"] = _clean_fragment(quoted[-1])
 
     if not any([parsed["artist"], parsed["title"], parsed["folder"]]):
-        # fallback: tenta interpretar termos curtos como artista/título
+        # Para termos soltos, priorizamos artista e deixamos título em aberto.
         parsed["artist"] = _clean_fragment(texto)
-        parsed["title"] = _clean_fragment(texto)
 
     return parsed
 
