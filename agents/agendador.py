@@ -32,5 +32,4 @@ def get_agendador(tools: list) -> Agent:
             "1. Se na busca de tarefas ou agenda vier algo relacionado a 'coleção', avise ao Velho do Rio que é necessário usar a ferramenta Discogs (Acervo Musical).",
         ],
         tools=[t for t in tools if t is not None],
-        show_tool_calls=True,
     )

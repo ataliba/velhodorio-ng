@@ -13,5 +13,4 @@ def get_pesquisador(tools: list) -> Agent:
             "Seja o radar que alimenta o time com a verdade externa, sem alucinações.",
         ],
         tools=[t for t in tools if t is not None],
-        show_tool_calls=True,
     )

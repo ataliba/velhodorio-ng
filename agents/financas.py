@@ -14,5 +14,4 @@ def get_financas(tools: list) -> Agent:
             "Prepare-se para expansão futura para ativos tradicionais e auditoria de infraestrutura.",
         ],
         tools=[t for t in tools if t is not None],
-        show_tool_calls=True,
     )
