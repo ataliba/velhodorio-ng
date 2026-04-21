@@ -24,7 +24,7 @@ from agno.models.openrouter import OpenRouter
 from agno.db.sqlite import SqliteDb
 from agno.db.postgres import PostgresDb
 from agno.tools.mcp import MCPTools
-from agno.tools.mcp.params import SSEClientParams
+from agno.tools.mcp.params import SSEClientParams, StreamableHTTPClientParams
 from agno.tools.google.calendar import GoogleCalendarTools
 
 from tools.music_tools import consultar_acervo_musical
@@ -99,7 +99,9 @@ async def lifespan(app):
 
     tools = {
         "agendador":  MCPTools(transport="sse", server_params=SSEClientParams(url=os.getenv("MCP_AGENDADOR", "http://localhost/agendador"), headers=auth_headers)),
-        "reclaim":    MCPTools(transport="sse", server_params=SSEClientParams(url=os.getenv("RECLAIM_URL", "http://localhost:3000/mcp"))),
+        # O MCP do Reclaim responde melhor via streamable-http; em SSE ele tende a
+        # derrubar o stream com incomplete chunked read mesmo quando a tool funciona.
+        "reclaim":    MCPTools(transport="streamable-http", server_params=StreamableHTTPClientParams(url=os.getenv("RECLAIM_URL", "http://localhost:3000/mcp"))),
         "financeiro": MCPTools(transport="sse", server_params=SSEClientParams(url=os.getenv("MCP_FINANCEIRO", "http://localhost/financeiro"), headers=auth_headers)),
         "escavador":  MCPTools(transport="sse", server_params=SSEClientParams(url=os.getenv("MCP_ESCAVADOR", "http://localhost/escavador"), headers=auth_headers)),
     }
