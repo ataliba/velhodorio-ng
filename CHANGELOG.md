@@ -2,6 +2,17 @@
 
 Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 
+## [1.2.0] - 2026-04-21
+
+### ✨ Adicionado
+- **Ferramenta de Limpeza de Fila (`limpa_fila.py`)**: Script utilitário para consumir e descartar mensagens da fila SQS rapidamente durante fases de teste.
+
+### 🛠️ Alterado
+- **ElevenLabs SDK v2**: Atualizada a integração de voz para compatibilidade com a versão 2.x da SDK da ElevenLabs (uso de `client.text_to_speech.convert`).
+- **Otimização de Mensageria**: Refatorado o roteador de mensagens (`dispatch`) para evitar o envio duplo (Texto + Áudio). Agora o texto é enviado como legenda (caption) do áudio no Telegram, ou omitido no WhatsApp se o áudio estiver presente.
+
+---
+
 ## [1.1.0] - 2026-04-20
 
 ### ✨ Adicionado

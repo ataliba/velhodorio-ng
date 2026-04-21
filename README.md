@@ -17,6 +17,13 @@ Construído em **Python**, usando o framework **[Agno v2](https://github.com/agn
 * **Ferramentas Locais Customizadas:**
     * 🎵 `consultar_acervo_musical`: Consulta nativa no MongoDB da coleção de discos.
     * ⏱️ `registrar_ponto_trabalho`: Gatilho de automação n8n para ponto eletrônico com envio preciso de `date_time` (timestamp extraído dos metadados).
+21: 
+22: ### 🛠️ Utilitários de Desenvolvimento
+23: *   🧹 `limpa_fila.py`: Script para "drenar" a fila SQS. Útil quando você insere dados de teste inválidos e quer limpar a fila sem que o agente os processe.
+24:     ```bash
+25:     # Execução rápida:
+26:     python limpa_fila.py
+27:     ```
 
 ---
 
