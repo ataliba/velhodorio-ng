@@ -132,7 +132,8 @@ def send_audio_telegram(chat_id: str, audio_path: str) -> bool:
 
 def dispatch(source: str, chat_id: str, text: str, audio_path: str = None) -> bool:
     """
-    Roteador central. Envia texto obrigatoriamente e áudio se disponível.
+    Roteador central. Prioriza o envio de áudio se disponível. 
+    Se o áudio falhar ou não existir, envia o texto como fallback.
     """
     target_id = chat_id
     if source == "telegram":
@@ -145,20 +146,25 @@ def dispatch(source: str, chat_id: str, text: str, audio_path: str = None) -> bo
 
     logger.info(f"📤 Despachando para {source} | Destino: {target_id}")
 
-    # 1. Envio de Texto (Obrigatório / Base)
-    text_ok = False
-    if source == "evolution":
-        text_ok = send_evolution(target_id, text)
-    elif source == "telegram":
-        text_ok = send_telegram(target_id, text)
-
-    # 2. Envio de Áudio (Opcional - se gerado)
+    # 1. Tentativa de envio de Áudio (se disponível)
     if audio_path and os.path.exists(audio_path):
-        logger.info(f"🎙️ Despachando áudio adicional para {source}...")
+        logger.info(f"🎙️ Tentando envio de áudio para {source}...")
+        audio_ok = False
         if source == "evolution":
-            send_audio_evolution(target_id, audio_path)
+            audio_ok = send_audio_evolution(target_id, audio_path)
         elif source == "telegram":
-            # Enviamos o áudio puro, sem legenda, para evitar erros de Markdown e duplicidade visual
-            send_audio_telegram(target_id, audio_path)
+            audio_ok = send_audio_telegram(target_id, audio_path)
+        
+        # Se o áudio foi enviado com sucesso, encerramos aqui para evitar duplicidade
+        if audio_ok:
+            return True
+        else:
+            logger.warning(f"⚠️ Falha no envio do áudio para {source}, recorrendo ao texto...")
+
+    # 2. Envio de Texto (Fallback ou Mensagem Original de Texto)
+    if source == "evolution":
+        return send_evolution(target_id, text)
+    elif source == "telegram":
+        return send_telegram(target_id, text)
     
-    return text_ok
+    return False
