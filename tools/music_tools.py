@@ -40,6 +40,7 @@ def _parse_query(consulta: str) -> dict:
         "folder": None,
         "random_count": None,
         "random_mode": False,
+        "explicit_title": False,
     }
 
     if any(token in texto_norm for token in ["aleatorio", "aleatoria", "aleatorios", "aleatorias", "escolhe", "escolha", "sorteia", "sugere", "sugira"]):
@@ -54,6 +55,7 @@ def _parse_query(consulta: str) -> dict:
     title_match = re.search(r"(?:titulo|t[ií]tulo)\s+(.+?)(?:$|[.!?;])", texto, flags=re.IGNORECASE)
     if title_match:
         parsed["title"] = _clean_fragment(title_match.group(1))
+        parsed["explicit_title"] = True
 
     artist_title_match = re.search(
         r"(?:disco\s+(?:do|da)|album\s+(?:do|da)|[áa]lbum\s+(?:do|da))\s+([^,]+?)\s*,\s*(.+)$",
@@ -63,6 +65,7 @@ def _parse_query(consulta: str) -> dict:
     if artist_title_match:
         parsed["artist"] = _clean_fragment(artist_title_match.group(1))
         parsed["title"] = _clean_fragment(artist_title_match.group(2))
+        parsed["explicit_title"] = True
         return parsed
 
     artist_match = re.search(
@@ -77,6 +80,7 @@ def _parse_query(consulta: str) -> dict:
         quoted = re.findall(r"['\"]([^'\"]+)['\"]", texto)
         if quoted:
             parsed["title"] = _clean_fragment(quoted[-1])
+            parsed["explicit_title"] = True
 
     if not any([parsed["artist"], parsed["title"], parsed["folder"]]):
         # Para termos soltos, priorizamos artista e deixamos título em aberto.
@@ -140,16 +144,17 @@ def consultar_acervo_musical(termo: str):
 
         query_info = _parse_query(termo)
         logger.info(
-            "🧠 Consulta interpretada | artist=%s | title=%s | folder=%s | random=%s | qtd=%s",
+            "🧠 Consulta interpretada | artist=%s | title=%s | explicit_title=%s | folder=%s | random=%s | qtd=%s",
             query_info["artist"],
             query_info["title"],
+            query_info["explicit_title"],
             query_info["folder"],
             query_info["random_mode"],
             query_info["random_count"],
         )
 
         artist = query_info["artist"]
-        title = query_info["title"]
+        title = query_info["title"] if query_info["explicit_title"] else None
         folder = query_info["folder"]
 
         if query_info["random_mode"] and folder:

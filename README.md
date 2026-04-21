@@ -18,6 +18,7 @@ Construído em **Python**, usando o framework **[Agno v2](https://github.com/agn
 * **Persistência de Sessões:** Histórico conversacional armazenado por usuário (`chatId`) em **PostgreSQL** (recomendado) ou **SQLite** como fallback local.
 * **Ferramentas Locais Customizadas:**
     * 🎵 `consultar_acervo_musical`: Consulta nativa no MongoDB da coleção de discos.
+    * 📰 `consultar_hackernews`: Consulta direta ao Hacker News por ranking ou termo.
     * ⏱️ `registrar_ponto_trabalho`: Gatilho de automação n8n para ponto eletrônico.
 
 ---

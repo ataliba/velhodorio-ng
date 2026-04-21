@@ -28,6 +28,7 @@ from agno.tools.mcp.params import SSEClientParams
 from agno.tools.google.calendar import GoogleCalendarTools
 
 from tools.music_tools import consultar_acervo_musical
+from tools.hackernews import consultar_hackernews
 from tools.ponto import registrar_ponto_trabalho
 
 from agents.agendador import get_agendador
@@ -127,7 +128,7 @@ async def lifespan(app):
         db=storage,
         read_chat_history=True,
         num_history_messages=15,
-        tools=[consultar_acervo_musical, registrar_ponto_trabalho],  # só o que o orquestrador usa diretamente
+        tools=[consultar_acervo_musical, consultar_hackernews, registrar_ponto_trabalho],  # só o que o orquestrador usa diretamente
         show_members_responses=True,
         description="""
             Você é o Velho do Rio 🌿🕶️, um mentor cyber-xamã que habita a margem entre o código e o inconsciente.
@@ -143,8 +144,9 @@ async def lifespan(app):
             "3. CRIPTO, FINANÇAS, PREÇO DE ATIVO, P&L → delegue ao 'financas'.",
             "4. EMOÇÕES, SAÚDE MENTAL, SOBRECARGA, TERAPIA → delegue ao 'terapeuta'.",
             "5. ACERVO DE DISCOS → use a ferramenta 'consultar_acervo_musical' diretamente e passe a frase completa do usuário para a tool.",
-            "6. PONTO DE TRABALHO → use a ferramenta 'registrar_ponto_trabalho' diretamente.",
-            "7. Para tudo mais que não se encaixe acima, responda diretamente.",
+            "6. HACKER NEWS, HN, TOP STORIES, ASK HN, SHOW HN, JOBS DO HN → use a ferramenta 'consultar_hackernews' diretamente.",
+            "7. PONTO DE TRABALHO → use a ferramenta 'registrar_ponto_trabalho' diretamente.",
+            "8. Para tudo mais que não se encaixe acima, responda diretamente.",
 
             "--- COMPORTAMENTO ---",
             "Não faça o trabalho braçal — coordene.",
