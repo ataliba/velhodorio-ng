@@ -154,6 +154,7 @@ def iniciar_consumidor():
                     prompt = body.get("content", "")
                     metadata = body.get("metadata", {})
                     chat_id = metadata.get("chatId")
+                    source = metadata.get("source", "whatsapp") # Default para whatsapp se não vier
                     
                     if not chat_id:
                         logger.warning("⚠️ Mensagem sem chatId ignorada.")
@@ -168,7 +169,7 @@ def iniciar_consumidor():
                     resposta_texto = res.content if hasattr(res, 'content') else str(res)
 
                     # Despacha a resposta
-                    dispatch(chat_id, resposta_texto)
+                    dispatch(source, chat_id, resposta_texto)
 
                     # Deleta da fila
                     sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=msg['ReceiptHandle'])
