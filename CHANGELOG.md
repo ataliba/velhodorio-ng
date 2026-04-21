@@ -2,6 +2,19 @@
 
 Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 
+## [1.3.0] - 2026-04-21
+
+### ✨ Adicionado
+- **Arquitetura Multi-Agente (Agno Team)**: Transição de um único agente para um time de especialistas liderados pelo Velho do Rio.
+- **Modelos OpenRouter**: Integração com DeepSeek V3, DeepSeek R1 e Claude 3.5 Haiku para diferentes especialidades.
+- **Agentes Especialistas**:
+    - `Agendador`: Gerenciamento de produtividade e Reclaim.io.
+    - `Finanças`: Estrategista de ativos e cripto (DeepSeek R1).
+    - `Pesquisador`: Inteligência de mercado e documentação (Claude Haiku).
+- **Orquestração Inteligente**: O Velho do Rio agora atua como interface central, delegando tarefas complexas para o time.
+
+---
+
 ## [1.2.0] - 2026-04-21
 
 ### ✨ Adicionado
