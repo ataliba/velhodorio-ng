@@ -151,10 +151,8 @@ pesquisador = get_pesquisador(tools=[mcp_escavador_server])
 
 # 2. Montamos o time
 velho_rio_team = Team(
-    leader=leader,
-    members=[agendador, financas, pesquisador],
+    agents=[leader, agendador, financas, pesquisador],
     show_tool_calls=True,
-    add_history_to_messages=True,
 )
 
 def iniciar_consumidor():
