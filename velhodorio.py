@@ -166,8 +166,14 @@ def iniciar_consumidor():
                     logger.info(f"📩 Mensagem recebida de {chat_id}: {prompt}")
 
                     # Executa o time
-                    # O Team no Agno v2 retorna um objeto de resposta
                     res = velho_rio_team.run(prompt)
+                    
+                    # Log de Debug: Mostra quem foi chamado e o que fez
+                    if hasattr(res, 'history') and res.history:
+                        for step in res.history:
+                            if hasattr(step, 'tool_calls') and step.tool_calls:
+                                logger.info(f"🛠️ Ferramentas usadas: {step.tool_calls}")
+                    
                     resposta_texto = res.content if hasattr(res, 'content') else str(res)
 
                     # Despacha a resposta
