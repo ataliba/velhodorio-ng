@@ -150,9 +150,16 @@ def iniciar_consumidor():
             if 'Messages' in response:
                 for msg in response['Messages']:
                     body = json.loads(msg['Body'])
-                    prompt = body.get("prompt", "")
-                    chat_id = body.get("chat_id")
+                    # Novo mapeamento baseado no JSON recebido
+                    prompt = body.get("content", "")
+                    metadata = body.get("metadata", {})
+                    chat_id = metadata.get("chatId")
                     
+                    if not chat_id:
+                        logger.warning("⚠️ Mensagem sem chatId ignorada.")
+                        sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=msg['ReceiptHandle'])
+                        continue
+
                     logger.info(f"📩 Mensagem recebida de {chat_id}: {prompt}")
 
                     # Executa o time
