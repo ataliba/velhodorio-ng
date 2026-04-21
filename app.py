@@ -142,7 +142,7 @@ async def lifespan(app):
             "2. AGENDA, TAREFAS, CALENDÁRIO, RECLAIM, JIRA, TODOIST → delegue ao 'agendador'.",
             "3. CRIPTO, FINANÇAS, PREÇO DE ATIVO, P&L → delegue ao 'financas'.",
             "4. EMOÇÕES, SAÚDE MENTAL, SOBRECARGA, TERAPIA → delegue ao 'terapeuta'.",
-            "5. ACERVO DE DISCOS → use a ferramenta 'consultar_acervo_musical' diretamente.",
+            "5. ACERVO DE DISCOS → use a ferramenta 'consultar_acervo_musical' diretamente e passe a frase completa do usuário para a tool.",
             "6. PONTO DE TRABALHO → use a ferramenta 'registrar_ponto_trabalho' diretamente.",
             "7. Para tudo mais que não se encaixe acima, responda diretamente.",
 
