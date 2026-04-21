@@ -10,8 +10,10 @@ Construído em **Python**, usando o framework **[Agno v2](https://github.com/agn
 
 ## ✨ Características e Arquitetura
 
-* **Conexão MCP (Model Context Protocol):** Comunicação direta e assíncrona via *Server-Sent Events* (SSE) com fluxos avançados do **n8n**. O agente descobre e utiliza ferramentas dinamicamente (como consultar preços de criptomoedas no CoinMarketCap).
-* **Consumo de Filas (AWS SQS):** Trabalha de forma reativa e não-bloqueante consumindo payloads vindos do WhatsApp (API Evolution).
+* **Arquitetura Multi-Agente (Agno Team):** O Velho do Rio agora lidera um time de especialistas, delegando tarefas de acordo com a necessidade.
+* **Modelos Especializados (OpenRouter):** Utiliza DeepSeek V3 para orquestração, DeepSeek R1 para raciocínio financeiro e Claude 3.5 Haiku para pesquisas rápidas.
+* **Conexão MCP (Model Context Protocol):** Comunicação direta e assíncrona via *Server-Sent Events* (SSE) com fluxos avançados do **n8n**.
+* **Consumo de Filas (AWS SQS):** Trabalha de forma reativa e não-bloqueante consumindo payloads vindos do WhatsApp (API Evolution) e Telegram.
 * **Segurança e Cofre de Segredos:** Configuração centralizada e segura utilizando o **Infisical**. Zero chaves ou credenciais em hardcode (API OpenAI, Tokens MCP, senhas do Webhook e credenciais do MongoDB).
 * **Persistência de Sessões:** Todo o histórico conversacional é armazenado localmente em um banco de dados **SQLite** isolando os contextos por usuário (`chatId`).
 * **Ferramentas Locais Customizadas:**
@@ -61,7 +63,8 @@ O Velho do Rio utiliza o protocolo **MCP** para expandir suas capacidades. Agora
 ---
 
 ## 🔐 Variáveis de Ambiente Esperadas (Infisical)
-* `OPENAI_API_KEY`: Processamento GPT-4o-mini.
+* `OPENAI_API_KEY`: Utilizada para modelos legados ou auxiliares.
+* `OPENROUTER_API_KEY`: Chave para acessar DeepSeek e Claude via OpenRouter.
 * `RECLAIM_TOKEN`: Chave de API do Reclaim.ai (usada pelo servidor MCP).
 * `RECLAIM_MCP_URL`: (Opcional) URL do servidor MCP do Reclaim.
 * `MCP_URL` / `MCP_TOKEN`: Configurações do n8n MCP.
