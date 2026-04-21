@@ -253,8 +253,17 @@ def iniciar_consumidor():
             time.sleep(5)
 
 if __name__ == "__main__":
-    # Garante que a chave está presente
-    if not os.getenv("OPENAI_API_KEY"):
-        logger.error("⚠️ A variável OPENAI_API_KEY não foi encontrada!")
-    else:
+    # Garante que as chaves essenciais estão presentes
+    openai_key = os.getenv("OPENAI_API_KEY")
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    
+    if not openai_key:
+        logger.warning("⚠️  A variável OPENAI_API_KEY não foi encontrada (necessária para alguns componentes legados).")
+    
+    if not openrouter_key:
+        logger.error("❌ A variável OPENROUTER_API_KEY não foi encontrada! O time de agentes não funcionará sem ela.")
+    
+    if openrouter_key:
         iniciar_consumidor()
+    else:
+        logger.error("🛑 Abortando: OPENROUTER_API_KEY é obrigatória para esta versão.")
