@@ -142,7 +142,6 @@ leader = Agent(
         "Você tem a capacidade de 'ouvir' Ataliba através de áudios (que chegam como texto). Responda naturalmente.",
     ],
     markdown=True,
-    add_history_to_messages=True,
 )
 
 # 1. Criamos os especialistas passando as ferramentas necessárias
@@ -155,6 +154,7 @@ velho_rio_team = Team(
     leader=leader,
     members=[agendador, financas, pesquisador],
     show_tool_calls=True,
+    add_history_to_messages=True,
 )
 
 def iniciar_consumidor():
