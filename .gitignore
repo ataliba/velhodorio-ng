@@ -21,6 +21,7 @@ token.json
 .vscode/
 .idea/
 .DS_Store
+.codex
 
 # Infisical e Segredos locais (caso decida usar .env local futuramente)
 .infisical.json

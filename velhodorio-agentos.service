@@ -1,0 +1,14 @@
+[Unit]
+Description=Velho do Rio - AgentOS API (porta 7777)
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/velhodorio-ng
+ExecStart=/usr/bin/infisical run -- /home/YOUR_USER/velhodorio-ng/venv/bin/python /home/YOUR_USER/velhodorio-ng/app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
