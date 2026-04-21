@@ -5,6 +5,7 @@ import os
 import asyncio
 import shutil
 import requests as _requests
+from elevenlabs import ElevenLabs, save
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.db.sqlite import SqliteDb
@@ -95,7 +96,8 @@ velho_rio = Agent(
         "Mantenha o tom de quem enxerga além dos logs, mas fale como um parceiro de caminhada.",
         "Use o nome 'Ataliba' para reforçar a presença e o vínculo.",
         "Trate o acervo como memórias guardadas e o sistema como o fluxo do rio.",
-        "Não use markdown pesado ou blocos tipo 'Leitura do Estado' em consultas simples."
+        "Não use markdown pesado ou blocos tipo 'Leitura do Estado' em consultas simples.",
+        "Você tem a capacidade de 'ouvir' Ataliba através de áudios (que chegam como texto). Responda naturalmente, sabendo que sua voz será sintetizada de volta para ele."
     ],
     markdown=True
 )
@@ -115,36 +117,76 @@ def iniciar_consumidor():
             if 'Messages' in response:
                 for msg in response['Messages']:
                     receipt_handle = msg['ReceiptHandle']
-                    body = json.loads(msg['Body'])
+                    raw_body = json.loads(msg['Body'])
                     
-                    # Dados vindos do n8n
-                    content  = body.get('content', '')
-                    metadata = body.get('metadata', {})
-                    session_id = metadata.get('sessionId') or metadata.get('chatId', 'geral')
-                    chat_id    = metadata.get('chatId', '')
-                    source     = metadata.get('source', '')   # "evolution" ou "telegram"
-                    date_time  = metadata.get('date_time', '')
+                    # Trata se o n8n mandar uma lista [ { ... } ] ou objeto direto { ... }
+                    body = raw_body[0] if isinstance(raw_body, list) else raw_body
 
-                    logger.info(f"📩 Chamado de: {session_id} | Canal: {source}")
+                    # Extração seguindo a estrutura de metadata/content
+                    content    = body.get('content', '')
+                    metadata   = body.get('metadata', {})
+                    
+                    session_id   = metadata.get('sessionId') or metadata.get('chatId', 'geral')
+                    chat_id      = metadata.get('chatId', '')
+                    source       = metadata.get('source', '')
+                    date_time    = metadata.get('date_time', '')
+                    message_type = metadata.get('messageType', 'text') # Novo campo
 
-                    # Injeta data/hora como contexto para o LLM repassar às tools
+                    logger.info(f"📩 Chamado de: {session_id} | Canal: {source} | Tipo: {message_type}")
+
+                    # Prepara o contexto do sistema
+                    system_context = []
                     if date_time:
-                        prompt_final = f"[Informação do Sistema - Data/Hora exata do registro: {date_time}]\n\n{content}"
-                    else:
-                        prompt_final = content
+                        system_context.append(f"Horário: {date_time}")
+                    if message_type == 'audio':
+                        system_context.append("Mensagem enviada via ÁUDIO (transcrita)")
 
-                    # O Agno precisa usar o modo assíncrono (arun) para inicializar as ferramentas MCP
-                    run_response = asyncio.run(velho_rio.arun(prompt_final, session_id=session_id))
+                    prompt_final = content
+                    if system_context:
+                        prompt_final = f"[Informação do Sistema - {', '.join(system_context)}]\n\n{content}"
+
+                    # O Agno processa a resposta
+                    run_response = asyncio.run(velho_rio.arun(prompt_final, session_id=str(session_id)))
                     resposta = run_response.content
+
+                    # Geração de Voz (ElevenLabs)
+                    audio_path = None
+                    eleven_api_key = os.getenv("ELEVENLABS_API_KEY")
+                    
+                    # Decisão: Gera áudio se a API KEY estiver presente 
+                    # E se a entrada foi áudio OU se você quiser áudio sempre
+                    gerar_audio = (message_type == 'audio' or os.getenv("VOICE_ALWAYS", "true") == "true")
+                    
+                    if eleven_api_key and resposta and gerar_audio:
+                        try:
+                            logger.info("🎙️ Gerando voz da sabedoria...")
+                            client = ElevenLabs(api_key=eleven_api_key)
+                            voice_id = os.getenv("ELEVENLABS_VOICE_ID") or "pNInz6obpg8ndclJ9tq9" 
+                            
+                            audio_gen = client.text_to_speech.convert(
+                                text=resposta,
+                                voice_id=voice_id,
+                                model_id="eleven_multilingual_v2"
+                            )
+                            
+                            audio_path = f"temp_voice_{session_id}.mp3"
+                            save(audio_gen, audio_path)
+                        except Exception as ve:
+                            logger.error(f"❌ Falha ao gerar voz: {ve}")
 
                     # Exibe no terminal para acompanhamento
                     print(f"\n👴 VELHO: {resposta}\n")
 
-                    # Despacha a resposta para o canal de origem
+                    # Despacha a resposta para o canal de origem (Texto + Áudio)
                     if source and chat_id:
-                        dispatch(source, chat_id, resposta)
+                        dispatch(source, chat_id, resposta, audio_path=audio_path)
                     else:
                         logger.warning("⚠️ 'source' ou 'chatId' ausente no metadata — resposta não enviada ao canal.")
+
+                    # Limpeza do arquivo temporário
+                    if audio_path and os.path.exists(audio_path):
+                        os.remove(audio_path)
+
 
                     # Deleta da fila
                     sqs.delete_message(QueueUrl=SQS_QUEUE_URL, ReceiptHandle=receipt_handle)
