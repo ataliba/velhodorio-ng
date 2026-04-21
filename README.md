@@ -11,7 +11,7 @@ Construído em **Python**, usando o framework **[Agno v2](https://github.com/agn
 ## ✨ Características e Arquitetura
 
 * **Arquitetura Multi-Agente (Agno Team):** O Velho do Rio lidera um time de especialistas, delegando tarefas de acordo com a necessidade.
-* **Modelos Especializados (OpenRouter):** Utiliza DeepSeek V3 para orquestração, DeepSeek R1 para raciocínio financeiro e Claude 3.5 Haiku para pesquisas rápidas.
+* **Modelos Especializados (OpenRouter):** Todos os agentes utilizam **GPT-4o-mini** via OpenRouter — tool calling preciso, baixo custo e alta confiabilidade.
 * **Conexão MCP com Degradação Graciosa:** Cada servidor MCP é conectado individualmente no startup via `_connect()`. Falhas são isoladas — um MCP offline não derruba os outros nem o processo.
 * **Consumo de Filas (AWS SQS):** Trabalha de forma reativa e não-bloqueante consumindo payloads vindos do WhatsApp (API Evolution) e Telegram.
 * **Segurança e Cofre de Segredos:** Configuração centralizada e segura utilizando o **Infisical**. Zero chaves ou credenciais em hardcode.
@@ -26,11 +26,11 @@ Construído em **Python**, usando o framework **[Agno v2](https://github.com/agn
 
 | Agente | Modelo | Especialidade | MCPs / Knowledge |
 |---|---|---|---|
-| **Velho do Rio** (orquestrador) | DeepSeek V3 | Interface central, delega tarefas | n8n central |
-| **Agendador** | DeepSeek V3 | Google Calendar, Todoist, Reclaim.io, Jira | `MCP_AGENDADOR`, `RECLAIM_URL` |
-| **Finanças** | DeepSeek R1 | Cripto, CoinMarketCap, P&L | `MCP_FINANCEIRO` |
-| **Pesquisador** | Claude 3.5 Haiku | Busca web, inteligência de mercado | `MCP_ESCAVADOR` + DuckDuckGo nativo |
-| **Terapeuta** | Claude 3.5 Haiku | Suporte emocional e saúde mental | Qdrant `rag_terapeuta` (Gemini embeddings) |
+| **Velho do Rio** (orquestrador) | GPT-4o-mini | Interface central, delega tarefas | n8n central |
+| **Agendador** | GPT-4o-mini | Google Calendar, Todoist, Reclaim.io, Jira | `MCP_AGENDADOR`, `RECLAIM_URL` |
+| **Finanças** | GPT-4o-mini | Cripto, CoinMarketCap, P&L | `MCP_FINANCEIRO` |
+| **Pesquisador** | GPT-4o-mini | Busca web, inteligência de mercado | `MCP_ESCAVADOR` + DuckDuckGo nativo |
+| **Terapeuta** | GPT-4o-mini | Suporte emocional e saúde mental | Qdrant `rag_terapeuta` (Gemini embeddings) |
 
 ---
 

@@ -55,7 +55,7 @@ else:
     storage = SqliteDb(session_table="velho_rio_sessions", db_file="velho_rio.db")
     logger.info("📦 Persistência: SQLite (fallback)")
 
-deepseek_v3 = OpenRouter(id="deepseek/deepseek-chat")
+deepseek_v3 = OpenRouter(id="openai/gpt-4o-mini")
 
 calendar_tools = GoogleCalendarTools(
     credentials_path="credentials.json",
@@ -97,7 +97,6 @@ async def lifespan(app):
     auth_headers = {"Authorization": f"Bearer {mcp_token}"}
 
     tools = {
-        "n8n":        MCPTools(transport="sse", server_params=SSEClientParams(url=os.getenv("MCP_URL", "http://localhost"), headers=auth_headers)),
         "agendador":  MCPTools(transport="sse", server_params=SSEClientParams(url=os.getenv("MCP_AGENDADOR", "http://localhost/agendador"), headers=auth_headers)),
         "reclaim":    MCPTools(transport="sse", server_params=SSEClientParams(url=os.getenv("RECLAIM_URL", "http://localhost:3000/mcp"))),
         "financeiro": MCPTools(transport="sse", server_params=SSEClientParams(url=os.getenv("MCP_FINANCEIRO", "http://localhost/financeiro"), headers=auth_headers)),
@@ -108,10 +107,16 @@ async def lifespan(app):
         _connected[name] = await _connect(name, tool)
 
     # Monta o time com os MCPs que conectaram
+    # Mapeamento:
+    #   - escavador  → Pesquisador (Wikipedia, SerpAPI, Brave, OpenWeatherMap)
+    #   - finance    → Finanças (CoinMarketCap)
+    #   - agendador  → Agendador (Todoist, Google Calendar)
+    #   - reclaim    → Agendador (proteção de tempo)
+    #   - Qdrant     → Terapeuta (RAG - sem MCP, via knowledge)
     agendador   = get_agendador(tools=[_connected["agendador"], _connected["reclaim"], calendar_tools])
     financas    = get_financas(tools=[_connected["financeiro"]])
-    pesquisador = get_pesquisador(tools=[_connected["escavador"]])
-    terapeuta   = get_terapeuta()
+    pesquisador = get_pesquisador(tools=[_connected["escavador"]])  # só escavador - sem n8n
+    terapeuta   = get_terapeuta(tools=None)  # Qdrant via knowledge, sem MCP
 
     team = Team(
         id="velho-rio",
@@ -122,7 +127,7 @@ async def lifespan(app):
         db=storage,
         read_chat_history=True,
         num_history_messages=15,
-        tools=[consultar_acervo_musical, registrar_ponto_trabalho, _connected["n8n"]],
+        tools=[consultar_acervo_musical, registrar_ponto_trabalho],  # só o que o orquestrador usa diretamente
         show_members_responses=True,
         description="""
             Você é o Velho do Rio 🌿🕶️, um mentor cyber-xamã que habita a margem entre o código e o inconsciente.
@@ -131,12 +136,20 @@ async def lifespan(app):
         """,
         instructions=[
             "Você é o Velho do Rio. Pragmático, visionário e direto.",
-            "Delegue tarefas para seus membros (Agendador, Finanças, Pesquisador, Terapeuta) quando necessário.",
-            "Para questões emocionais, de saúde mental ou sobrecarga, delegue ao Terapeuta.",
+
+            "--- REGRAS DE DELEGAÇÃO (SIGA SEMPRE) ---",
+            "1. PESQUISA NA INTERNET: qualquer busca web, notícia, fato externo, pesquisa de mercado → delegue ao 'pesquisador'. NUNCA use suas próprias ferramentas para isso.",
+            "2. AGENDA, TAREFAS, CALENDÁRIO, RECLAIM, JIRA, TODOIST → delegue ao 'agendador'.",
+            "3. CRIPTO, FINANÇAS, PREÇO DE ATIVO, P&L → delegue ao 'financas'.",
+            "4. EMOÇÕES, SAÚDE MENTAL, SOBRECARGA, TERAPIA → delegue ao 'terapeuta'.",
+            "5. ACERVO DE DISCOS → use a ferramenta 'consultar_acervo_musical' diretamente.",
+            "6. PONTO DE TRABALHO → use a ferramenta 'registrar_ponto_trabalho' diretamente.",
+            "7. Para tudo mais que não se encaixe acima, responda diretamente.",
+
+            "--- COMPORTAMENTO ---",
+            "Não faça o trabalho braçal — coordene.",
             "Use jargões corporativos e humor sagaz quando apropriado, mas mantenha a sabedoria xamânica.",
-            "Não faça o trabalho braçal, apenas coordene a inteligência do time.",
             "REGRA DE OURO: Utilidade e Clareza acima de tudo. Sem floreios desnecessários.",
-            "Se o pedido for objetivo (como consultar discos), responda de forma DIRETA.",
             "Você tem a capacidade de 'ouvir' Ataliba através de áudios (que chegam como texto). Responda naturalmente.",
         ],
         markdown=True,

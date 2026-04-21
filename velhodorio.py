@@ -50,22 +50,29 @@ calendar_tools = GoogleCalendarTools(
     token_path="token.json"
 )
 
-deepseek_v3 = OpenRouter(id="deepseek/deepseek-chat")
+deepseek_v3 = OpenRouter(id="openai/gpt-4o-mini")
 
 
 def _build_team(
-    n8n: MCPTools,
     mcp_agendador: MCPTools | None,
     reclaim: MCPTools | None,
     mcp_financeiro: MCPTools | None,
     mcp_escavador: MCPTools | None,
 ) -> Team:
-    """Monta o time com os MCPTools já inicializados (dentro do async with)."""
+    """Monta o time com os MCPTools já inicializados (dentro do async with).
+
+    Mapeamento de ferramentas por MCP:
+      escavador: Wikipedia, SerpAPI, Brave Search, OpenWeatherMap → Pesquisador
+      finance:   CoinMarketCap Price, Crypto Map, Global Metrics → Finanças
+      agendas:   Todoist, Google Calendar → Agendador
+      reclaim:   Proteção de tempo → Agendador
+      Qdrant:    rag_terapeuta → Terapeuta (via knowledge, sem MCP)
+    """
 
     agendador   = get_agendador(tools=[mcp_agendador, reclaim, calendar_tools])
     financas    = get_financas(tools=[mcp_financeiro])
-    pesquisador = get_pesquisador(tools=[mcp_escavador])
-    terapeuta   = get_terapeuta()
+    pesquisador = get_pesquisador(tools=[mcp_escavador])  # só escavador
+    terapeuta   = get_terapeuta(tools=None)  # Qdrant via knowledge
 
     return Team(
         name="Velho do Rio",
@@ -75,7 +82,7 @@ def _build_team(
         db=storage,
         read_chat_history=True,
         num_history_messages=15,
-        tools=[consultar_acervo_musical, registrar_ponto_trabalho, n8n],
+        tools=[consultar_acervo_musical, registrar_ponto_trabalho],  # só o que o orquestrador usa diretamente
         show_members_responses=True,
         debug_mode=True,
         description="""
@@ -85,12 +92,20 @@ def _build_team(
         """,
         instructions=[
             "Você é o Velho do Rio. Pragmático, visionário e direto.",
-            "Delegue tarefas para seus membros (Agendador, Finanças, Pesquisador, Terapeuta) quando necessário.",
-            "Para questões emocionais, de saúde mental ou sobrecarga, delegue ao Terapeuta.",
+
+            "--- REGRAS DE DELEGAÇÃO (SIGA SEMPRE) ---",
+            "1. PESQUISA NA INTERNET: qualquer busca web, notícia, fato externo, pesquisa de mercado → delegue ao 'pesquisador'. NUNCA use suas próprias ferramentas para isso.",
+            "2. AGENDA, TAREFAS, CALENDÁRIO, RECLAIM, JIRA, TODOIST → delegue ao 'agendador'.",
+            "3. CRIPTO, FINANÇAS, PREÇO DE ATIVO, P&L → delegue ao 'financas'.",
+            "4. EMOÇÕES, SAÚDE MENTAL, SOBRECARGA, TERAPIA → delegue ao 'terapeuta'.",
+            "5. ACERVO DE DISCOS → use a ferramenta 'consultar_acervo_musical' diretamente.",
+            "6. PONTO DE TRABALHO → use a ferramenta 'registrar_ponto_trabalho' diretamente.",
+            "7. Para tudo mais que não se encaixe acima, responda diretamente.",
+
+            "--- COMPORTAMENTO ---",
+            "Não faça o trabalho braçal — coordene.",
             "Use jargões corporativos e humor sagaz quando apropriado, mas mantenha a sabedoria xamânica.",
-            "Não faça o trabalho braçal, apenas coordene a inteligência do time.",
             "REGRA DE OURO: Utilidade e Clareza acima de tudo. Sem floreios desnecessários.",
-            "Se o pedido for objetivo (como consultar discos), responda de forma DIRETA.",
             "Você tem a capacidade de 'ouvir' Ataliba através de áudios (que chegam como texto). Responda naturalmente.",
         ],
         markdown=True,
@@ -102,7 +117,6 @@ async def iniciar_consumidor():
     sqs = boto3.client('sqs', region_name=AWS_REGION)
 
     # --- URLs dos MCPs ---
-    n8n_url        = os.getenv("MCP_URL") or "http://localhost"
     agendador_url  = os.getenv("MCP_AGENDADOR") or "http://localhost/agendador"
     reclaim_url    = os.getenv("RECLAIM_URL") or "http://localhost:3000/mcp"
     financeiro_url = os.getenv("MCP_FINANCEIRO") or "http://localhost/financeiro"
@@ -132,13 +146,11 @@ async def iniciar_consumidor():
         except Exception:
             pass
 
-    n8n_mcp        = MCPTools(transport="sse", server_params=SSEClientParams(url=n8n_url, headers=auth_headers))
     mcp_agendador  = MCPTools(transport="sse", server_params=SSEClientParams(url=agendador_url, headers=auth_headers))
     mcp_reclaim    = MCPTools(transport="streamable-http", server_params=StreamableHTTPClientParams(url=reclaim_url))
     mcp_financeiro = MCPTools(transport="sse", server_params=SSEClientParams(url=financeiro_url, headers=auth_headers))
     mcp_escavador  = MCPTools(transport="sse", server_params=SSEClientParams(url=escavador_url, headers=auth_headers))
 
-    n8n_conn        = await _connect("MCP n8n",        n8n_mcp)
     agendador_conn  = await _connect("MCP Agendador",  mcp_agendador)
     reclaim_conn    = await _connect("MCP Reclaim",    mcp_reclaim)
     financeiro_conn = await _connect("MCP Financeiro", mcp_financeiro)
@@ -146,7 +158,6 @@ async def iniciar_consumidor():
 
     try:
         velho_rio_team = _build_team(
-            n8n=n8n_conn,
             mcp_agendador=agendador_conn,
             reclaim=reclaim_conn,
             mcp_financeiro=financeiro_conn,
@@ -195,7 +206,7 @@ async def iniciar_consumidor():
 
     finally:
         for name, tool in [
-            ("n8n", n8n_conn), ("Agendador", agendador_conn), ("Reclaim", reclaim_conn),
+            ("Agendador", agendador_conn), ("Reclaim", reclaim_conn),
             ("Financeiro", financeiro_conn), ("Escavador", escavador_conn),
         ]:
             await _disconnect(name, tool)

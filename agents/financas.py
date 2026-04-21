@@ -1,10 +1,10 @@
 from agno.agent import Agent
-from .models import deepseek_r1
+from .models import gpt4o_mini
 
 def get_financas(tools: list) -> Agent:
     return Agent(
         name="Finanças",
-        model=deepseek_r1,
+        model=gpt4o_mini,
         role="Estrategista de Ativos e Trader",
         instructions=[
             "Você é um estrategista financeiro visionário e cirúrgico.",

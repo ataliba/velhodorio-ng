@@ -2,12 +2,12 @@ from agno.agent import Agent
 from agno.knowledge.knowledge import Knowledge
 from agno.vectordb.qdrant import Qdrant
 from agno.knowledge.embedder.google import GeminiEmbedder
-from .models import haiku
+from .models import gpt4o_mini
 
 import os
 
 
-def get_terapeuta() -> Agent:
+def get_terapeuta(tools: list | None = None) -> Agent:
     """
     Agente Terapeuta — acessa a base vetorial 'saude' no Qdrant
     usando embeddings Gemini (mesmo modelo usado na indexação).
@@ -41,7 +41,7 @@ def get_terapeuta() -> Agent:
 
     return Agent(
         name="Terapeuta",
-        model=haiku,
+        model=gpt4o_mini,
         role="Guardião da Saúde Física e Mental",
         knowledge=knowledge,
         search_knowledge=True,
@@ -67,5 +67,5 @@ def get_terapeuta() -> Agent:
             "- Nunca romantize o sofrimento. Nunca minimize sintomas.",
             "- Responda em português.",
         ],
-        tools=[],
+        tools=[t for t in (tools or []) if t is not None],
     )

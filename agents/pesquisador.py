@@ -1,11 +1,11 @@
 from agno.agent import Agent
 from agno.tools.duckduckgo import DuckDuckGoTools
-from .models import haiku
+from .models import gpt4o_mini
 
 def get_pesquisador(tools: list) -> Agent:
     return Agent(
         name="Pesquisador",
-        model=haiku,
+        model=gpt4o_mini,
         role="Inteligência de Mercado e Busca Técnica",
         instructions=[
             "Sua missão é a extração de fatos puros e documentação técnica.",
