@@ -159,7 +159,8 @@ async def lifespan(app):
         markdown=True,
     )
 
-    agent_os.resync(teams=[team])
+    agent_os.teams = [team]
+    agent_os.resync(app)
     logger.info("🌿 Velho do Rio OS pronto.")
 
     yield
