@@ -86,7 +86,8 @@ def _build_team(
         members=[agendador, financas, pesquisador, terapeuta],
         db=storage,
         read_chat_history=True,
-        num_history_messages=15,
+        num_history_messages=8,
+        add_history_to_context = True,
         tools=[consultar_acervo_musical, consultar_hackernews, registrar_ponto_trabalho],  # só o que o orquestrador usa diretamente
         show_members_responses=True,
         debug_mode=True,
