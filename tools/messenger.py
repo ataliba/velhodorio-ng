@@ -58,15 +58,40 @@ def send_telegram(chat_id: str, text: str) -> bool:
         logger.error("❌ Telegram: variável TELEGRAM_BOT_TOKEN não configurada.")
         return False
 
+    # Validação básica do chat_id
+    if not chat_id or not chat_id.lstrip('-').isdigit():
+        logger.error(f"❌ Telegram: chat_id inválido: {chat_id}")
+        return False
+
     url = f"https://api.telegram.org/bot{token}/sendMessage"
+    
+    # Limpa o texto de caracteres problemáticos para Markdown
+    text_clean = text.replace('\x00', '').strip()
+    
     payload = {
         "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "Markdown"
+        "text": text_clean,
     }
+    
+    # Usa Markdown apenas se o texto não tiver caracteres especiais problemáticos
+    # Caracteres que podem causar 400: _ * [ ] ( ) ~ ` > # + - = | { } .
+    markdown_chars = {'_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.'}
+    if text_clean and not any(c in text_clean for c in markdown_chars):
+        payload["parse_mode"] = "Markdown"
+    
+    logger.debug(f"📤 Telegram payload: chat_id={chat_id}, text_len={len(text_clean)}, parse_mode={payload.get('parse_mode', 'None')}")
 
     try:
         resp = requests.post(url, json=payload, timeout=15)
+        
+        # Log detalhado para debug
+        if resp.status_code != 200:
+            try:
+                error_data = resp.json()
+                logger.error(f"❌ Telegram API error: {error_data}")
+            except:
+                logger.error(f"❌ Telegram response: {resp.text[:500]}")
+        
         resp.raise_for_status()
         logger.info(f"✈️ Telegram: mensagem enviada para {chat_id} (status {resp.status_code})")
         return True
