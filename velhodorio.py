@@ -6,7 +6,11 @@ from agno.db.postgres import PostgresDb
 from tools.music_tools import consultar_acervo_musical
 from tools.hackernews import consultar_hackernews
 from tools.messenger import dispatch
-from tools.ponto import registrar_ponto_trabalho
+from tools.ponto import (
+    registrar_ponto_trabalho,
+    reset_current_message_date_time,
+    set_current_message_date_time,
+)
 from agno.tools.google.calendar import GoogleCalendarTools
 from agno.tools.mcp import MCPTools
 from agno.tools.mcp.params import SSEClientParams, StreamableHTTPClientParams
@@ -102,6 +106,9 @@ def _build_team(
             "5. ACERVO DE DISCOS → use a ferramenta 'consultar_acervo_musical' diretamente e passe a frase completa do usuário para a tool.",
             "6. HACKER NEWS, HN, TOP STORIES, ASK HN, SHOW HN, JOBS DO HN → use a ferramenta 'consultar_hackernews' diretamente.",
             "7. PONTO DE TRABALHO → use a ferramenta 'registrar_ponto_trabalho' diretamente.",
+            "7.1. Ao registrar ponto, considere que a data/hora oficial vem sempre do timestamp real da mensagem atual. Nunca invente, estime ou reconstrua a data por conta própria.",
+            "7.2. Se a ferramenta de ponto retornar erro indicando ausência de 'metadata.date_time', responda de forma natural que nao foi possivel bater o ponto porque a mensagem chegou sem data/hora de referencia. Nao exponha o erro cru nem tente contornar isso com suposicoes.",
+            "7.3. Se a ferramenta de ponto retornar 'SUCESSO:' com a hora registrada, transforme isso em confirmacao natural para o usuario, deixando clara a hora efetivamente usada no registro, sem repetir o prefixo tecnico.",
             "8. Para tudo mais que não se encaixe acima, responda diretamente.",
 
             "--- COMPORTAMENTO ---",
@@ -183,6 +190,7 @@ async def iniciar_consumidor():
                         metadata = body.get("metadata", {})
                         chat_id  = metadata.get("chatId")
                         source   = metadata.get("source", "whatsapp")
+                        date_time = metadata.get("date_time")
 
                         if not chat_id:
                             logger.warning("⚠️ Mensagem sem chatId ignorada.")
@@ -190,8 +198,11 @@ async def iniciar_consumidor():
                             continue
 
                         logger.info(f"📩 Mensagem recebida de {chat_id}: {prompt}")
-
-                        res = await velho_rio_team.arun(prompt)
+                        date_time_token = set_current_message_date_time(date_time)
+                        try:
+                            res = await velho_rio_team.arun(prompt)
+                        finally:
+                            reset_current_message_date_time(date_time_token)
 
                         if hasattr(res, 'history') and res.history:
                             for step in res.history:

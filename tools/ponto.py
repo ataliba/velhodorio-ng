@@ -2,15 +2,28 @@ import requests
 from requests.auth import HTTPBasicAuth
 import logging
 import os
+from contextvars import ContextVar
+
+CURRENT_MESSAGE_DATE_TIME: ContextVar[str | None] = ContextVar("current_message_date_time", default=None)
 
 # Configuração de log para você acompanhar no terminal do seu Worker
 logger = logging.getLogger(__name__)
+
+
+def set_current_message_date_time(date_time: str | None):
+    """Registra o timestamp da mensagem atual para tools que dependem da data real do evento."""
+    return CURRENT_MESSAGE_DATE_TIME.set(date_time)
+
+
+def reset_current_message_date_time(token) -> None:
+    CURRENT_MESSAGE_DATE_TIME.reset(token)
+
 
 def registrar_ponto_trabalho(hora_ponto: str):
     """
     Ferramenta para o Velho do Rio registrar o ponto do Ataliba.
     Aciona o workflow no n8n via Webhook com Basic Auth.
-    O n8n calcula automaticamente +9h a partir da 'hora_ponto' e agenda no Google.
+    O n8n calcula automaticamente +9h a partir do timestamp real da mensagem.
     """
     
     # 1. Configurações de acesso (Ajuste o IP conforme seu Proxmox/ambiente)
@@ -22,13 +35,17 @@ def registrar_ponto_trabalho(hora_ponto: str):
     SENHA_N8N = os.getenv("WEBHOOK_PASS") 
     try:
         logger.info("🌿 Velho do Rio enviando sinal de ponto para o n8n...")
-        
-        # Payload com a data extraída pelo LLM do contexto
+
+        hora_ponto_payload = CURRENT_MESSAGE_DATE_TIME.get()
+        if not hora_ponto_payload:
+            logger.error("❌ Não foi possível registrar o ponto: metadata.date_time ausente.")
+            return "ERRO: metadata.date_time ausente; registro de ponto impossivel."
+
         payload = {
             "usuario": "Ataliba",
             "origem": "Velho do Rio Bot",
             "acao": "registrar_ponto",
-            "hora_ponto": hora_ponto
+            "hora_ponto": hora_ponto_payload,
         }
         
         response = requests.post(
@@ -43,8 +60,8 @@ def registrar_ponto_trabalho(hora_ponto: str):
             logger.info("✅ Ponto registrado com sucesso no n8n.")
             # Retorno otimizado para a interpretação do Agente
             return (
-                "O ponto foi registrado com sucesso. Acabei de criar um lembrete "
-                "na sua agenda para daqui a 9 horas, arredondado para o próximo múltiplo de 5 minutos."
+                "SUCESSO: ponto registrado com hora_ponto="
+                f"{hora_ponto_payload}. Lembrete de saida criado para daqui a 9 horas."
             )
         
         elif response.status_code == 401:
