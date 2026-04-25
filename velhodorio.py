@@ -86,7 +86,7 @@ def _build_team(
         members=[agendador, financas, pesquisador, terapeuta],
         db=storage,
         read_chat_history=True,
-        num_history_messages=8,
+        num_history_messages=15,
         add_history_to_context = True,
         tools=[consultar_acervo_musical, consultar_hackernews, registrar_ponto_trabalho],  # só o que o orquestrador usa diretamente
         show_members_responses=True,
@@ -201,7 +201,7 @@ async def iniciar_consumidor():
                         logger.info(f"📩 Mensagem recebida de {chat_id}: {prompt}")
                         date_time_token = set_current_message_date_time(date_time)
                         try:
-                            res = await velho_rio_team.arun(prompt)
+                            res = await velho_rio_team.arun(prompt, session_id=chat_id)
                         finally:
                             reset_current_message_date_time(date_time_token)
 
