@@ -4,10 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-Velho do Rio NG is a personal autonomous AI agent ("cyber-shaman" persona) for a single user. It runs in two independent modes:
-
-- **SQS consumer** (`velhodorio.py`) — polls AWS SQS, processes WhatsApp and Telegram messages through the multi-agent team, replies back
-- **AgentOS REST API** (`app.py`) — exposes the same team as a FastAPI server on port 7777 with SSE streaming
+Velho do Rio NG is a personal autonomous AI agent ("cyber-shaman" persona) for a single user. It runs as an SQS consumer (`velhodorio.py`) — polls AWS SQS, processes WhatsApp and Telegram messages through the multi-agent team, replies back.
 
 ## Running the Project
 
@@ -16,9 +13,6 @@ All secrets are managed by Infisical — there is no `.env` file. Prefix every r
 ```bash
 # SQS consumer
 infisical run -- python velhodorio.py
-
-# REST API (AgentOS, port 7777)
-infisical run -- python app.py
 
 # Drain SQS queue (dev utility)
 python limpa_fila.py
@@ -36,7 +30,6 @@ pip install -r requirements.txt
 **Production (systemd):**
 ```bash
 journalctl -u velhodorio -f
-journalctl -u velhodorio-agentos -f
 ```
 
 There are no tests, no linter config, and no CI.
@@ -45,7 +38,7 @@ There are no tests, no linter config, and no CI.
 
 ### Agent Team (Agno v2 framework)
 
-The orchestrator is `Velho do Rio` (Team leader), defined in `velhodorio.py` and `app.py`. It delegates to four specialist agents:
+The orchestrator is `Velho do Rio` (Team leader), defined in `velhodorio.py`. It delegates to four specialist agents:
 
 | Agent | File | Domain | External Tools |
 |---|---|---|---|
@@ -81,7 +74,6 @@ At startup, if `POSTGRES_URL + POSTGRES_USER + POSTGRES_PASS` are present in Inf
 
 ## Key Gotchas
 
-- **No `reload=True` with AgentOS** — `app.py` explicitly forbids it; it breaks the MCP lifespan management
 - **Timestamp threading in ponto.py** — uses `ContextVar` (`CURRENT_MESSAGE_DATE_TIME`). Call `set_current_message_date_time()` before `arun()` and `reset_current_message_date_time()` in a `finally` block
 - **Hardcoded internal addresses** — MongoDB (`192.168.68.38:27017`) and the n8n webhook URL (`automation.cybernetus.com/webhook/registrar_ponto`) are hardcoded; only their credentials come from env vars
 - **Google Calendar OAuth** — requires `credentials.json` and `token.json` in the project root (both gitignored); must be set up manually before the Agendador agent can use Google Calendar
