@@ -32,6 +32,7 @@ Construído em **Python**, usando o framework **[Agno v2](https://github.com/agn
 | **Finanças** | GPT-4o-mini | Cripto, CoinMarketCap, P&L | `MCP_FINANCEIRO` |
 | **Pesquisador** | GPT-4o-mini | Busca web, inteligência de mercado | `MCP_ESCAVADOR` + DuckDuckGo nativo |
 | **Terapeuta** | GPT-4o-mini | Suporte emocional e saúde mental | Qdrant `rag_terapeuta` (Gemini embeddings) |
+| **Tank** | GPT-4o-mini | Conhecimento técnico e profissional | Qdrant `profissional` (Gemini embeddings) + `MCP_TANK` (opcional) |
 
 ---
 
@@ -150,6 +151,7 @@ O Velho do Rio utiliza o protocolo **MCP** para expandir suas capacidades. O sis
 | `RECLAIM_TOKEN` | Chave de API do Reclaim.ai |
 | `MCP_FINANCEIRO` | URL do MCP Financeiro (CoinMarketCap, etc.) |
 | `MCP_ESCAVADOR` | URL do MCP do Pesquisador (Brave, SerpAPI, etc.) |
+| `MCP_TANK` | URL do MCP técnico do Tank (ex: Kiro/AWS docs) — opcional |
 | `GOOGLE_API_KEY` | Chave Google para embeddings Gemini (base rag_terapeuta) |
 | `QDRANT_URL` | URL da instância Qdrant |
 | `QDRANT_API_KEY` | API Key do Qdrant |

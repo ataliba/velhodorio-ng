@@ -38,7 +38,7 @@ There are no tests, no linter config, and no CI.
 
 ### Agent Team (Agno v2 framework)
 
-The orchestrator is `Velho do Rio` (Team leader), defined in `velhodorio.py`. It delegates to four specialist agents:
+The orchestrator is `Velho do Rio` (Team leader), defined in `velhodorio.py`. It delegates to five specialist agents:
 
 | Agent | File | Domain | External Tools |
 |---|---|---|---|
@@ -46,6 +46,7 @@ The orchestrator is `Velho do Rio` (Team leader), defined in `velhodorio.py`. It
 | Financas | `agents/financas.py` | Crypto, CoinMarketCap | MCP_FINANCEIRO (SSE) |
 | Pesquisador | `agents/pesquisador.py` | Web search | MCP_ESCAVADOR (SSE), DuckDuckGoTools |
 | Terapeuta | `agents/terapeuta.py` | Emotional support | Qdrant RAG via Gemini embeddings (collection: `rag_terapeuta`) |
+| Tank | `agents/tank.py` | Technical/professional knowledge | Qdrant RAG via Gemini embeddings (collection: `profissional`), MCP_TANK (SSE, optional) |
 
 The orchestrator's own tools (not delegated):
 - `tools/music_tools.py` — fuzzy query against MongoDB Discogs collection at `192.168.68.38:27017`
@@ -59,6 +60,7 @@ All agents use `openai/gpt-4o-mini` via OpenRouter, defined in `agents/models.py
 MCPs are connected individually at startup via a `_connect()` helper. If any MCP is offline, that agent gets `None` for that tool and the team still starts (graceful degradation).
 
 - All MCPs use SSE transport **except** Reclaim, which uses `streamable-http`
+- `MCP_TANK` is optional — if env var absent, Tank starts with Qdrant only (no MCP)
 - The n8n MCP workflows are exported in `mcpvelhodoriong.json`
 
 ### Messaging
