@@ -19,6 +19,7 @@ from agents.agendador import get_agendador
 from agents.financas import get_financas
 from agents.pesquisador import get_pesquisador
 from agents.terapeuta import get_terapeuta
+from agents.tank import get_tank
 
 import asyncio
 import os
@@ -63,6 +64,7 @@ def _build_team(
     reclaim: MCPTools | None,
     mcp_financeiro: MCPTools | None,
     mcp_escavador: MCPTools | None,
+    mcp_tank: MCPTools | None,
 ) -> Team:
     """Monta o time com os MCPTools já inicializados (dentro do async with).
 
@@ -71,19 +73,22 @@ def _build_team(
       finance:   CoinMarketCap Price, Crypto Map, Global Metrics → Finanças
       agendas:   Todoist, Google Calendar → Agendador
       reclaim:   Proteção de tempo → Agendador
+      tank:      MCP técnico (a definir) → Tank
       Qdrant:    rag_terapeuta → Terapeuta (via knowledge, sem MCP)
+      Qdrant:    profissional  → Tank (via knowledge, sem MCP)
     """
 
     agendador   = get_agendador(tools=[mcp_agendador, reclaim, calendar_tools])
     financas    = get_financas(tools=[mcp_financeiro])
-    pesquisador = get_pesquisador(tools=[mcp_escavador])  # só escavador
+    pesquisador = get_pesquisador(tools=[mcp_escavador])
     terapeuta   = get_terapeuta(tools=None)  # Qdrant via knowledge
+    tank        = get_tank(tools=[mcp_tank])  # Qdrant via knowledge + MCP técnico
 
     return Team(
         name="Velho do Rio",
         model=deepseek_v3,
         role="Interface Central e Orquestrador Cyber-Xamã",
-        members=[agendador, financas, pesquisador, terapeuta],
+        members=[agendador, financas, pesquisador, terapeuta, tank],
         db=storage,
         read_chat_history=True,
         num_history_messages=15,
@@ -110,7 +115,8 @@ def _build_team(
             "7.1. Ao registrar ponto, considere que a data/hora oficial vem sempre do timestamp real da mensagem atual. Nunca invente, estime ou reconstrua a data por conta própria.",
             "7.2. Se a ferramenta de ponto retornar erro indicando ausência de 'metadata.date_time', responda de forma natural que nao foi possivel bater o ponto porque a mensagem chegou sem data/hora de referencia. Nao exponha o erro cru nem tente contornar isso com suposicoes.",
             "7.3. Se a ferramenta de ponto retornar 'SUCESSO:' com a hora registrada, transforme isso em confirmacao natural para o usuario, deixando clara a hora efetivamente usada no registro, sem repetir o prefixo tecnico.",
-            "8. Para tudo mais que não se encaixe acima, responda diretamente.",
+            "8. TÉCNICO, CÓDIGO, DEVOPS, AWS, PYTHON, GOLANG, SEGURANÇA, INFRAESTRUTURA, HOTMART → delegue ao 'tank'.",
+            "9. Para tudo mais que não se encaixe acima, responda diretamente.",
 
             "--- COMPORTAMENTO ---",
             "Não faça o trabalho braçal — coordene.",
@@ -131,6 +137,7 @@ async def iniciar_consumidor():
     reclaim_url    = os.getenv("RECLAIM_URL") or "http://localhost:3000/mcp"
     financeiro_url = os.getenv("MCP_FINANCEIRO") or "http://localhost/financeiro"
     escavador_url  = os.getenv("MCP_ESCAVADOR") or "http://localhost/escavador"
+    tank_url       = os.getenv("MCP_TANK")
     mcp_token      = os.getenv("MCP_TOKEN", "")
     auth_headers   = {"Authorization": f"Bearer {mcp_token}"}
 
@@ -166,12 +173,18 @@ async def iniciar_consumidor():
     financeiro_conn = await _connect("MCP Financeiro", mcp_financeiro)
     escavador_conn  = await _connect("MCP Escavador",  mcp_escavador)
 
+    tank_conn = None
+    if tank_url:
+        mcp_tank   = MCPTools(transport="sse", server_params=SSEClientParams(url=tank_url, headers=auth_headers))
+        tank_conn  = await _connect("MCP Tank", mcp_tank)
+
     try:
         velho_rio_team = _build_team(
             mcp_agendador=agendador_conn,
             reclaim=reclaim_conn,
             mcp_financeiro=financeiro_conn,
             mcp_escavador=escavador_conn,
+            mcp_tank=tank_conn,
         )
 
         logger.info("🌿 Velho do Rio (Team v2) ouvindo as águas do SQS...")
@@ -222,6 +235,7 @@ async def iniciar_consumidor():
         for name, tool in [
             ("Agendador", agendador_conn), ("Reclaim", reclaim_conn),
             ("Financeiro", financeiro_conn), ("Escavador", escavador_conn),
+            ("Tank", tank_conn),
         ]:
             await _disconnect(name, tool)
 

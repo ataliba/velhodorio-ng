@@ -106,57 +106,26 @@ POSTGRES_PASS = sua_senha_aqui
 
 ---
 
-## 🖥️ AgentOS — API REST + Playground
-
-Além do consumidor SQS (`velhodorio.py`), o time pode ser servido como uma **API FastAPI completa** via AgentOS:
-
-```bash
-infisical run -- python app.py
-```
-
-Isso sobe um servidor em `http://0.0.0.0:7777` com:
-- **`/docs`** — Swagger com todos os endpoints gerados automaticamente
-- **Streaming SSE** — respostas em tempo real
-- **Histórico por sessão** — contexto isolado por `session_id`
-- **Tracing** — rastreamento de execuções no banco SQLite
-
-Para usar via `curl` ou qualquer cliente HTTP:
-```bash
-# Enviar mensagem para o time
-curl -X POST http://localhost:7777/v1/teams/velho-rio/runs \
-  -H "Content-Type: application/json" \
-  -d '{"message": "como estou me sentindo essa semana?", "session_id": "ataliba"}'
-```
-
-> Os dois modos são independentes — você pode rodar `velhodorio.py` (SQS) e `app.py` (API) ao mesmo tempo, cada um com seu próprio processo.
-
 ### Systemd
 
-O projeto inclui dois unit files prontos. Para instalar ambos:
+O projeto inclui um unit file pronto. Para instalar:
 
 ```bash
-# 1. Edite os arquivos substituindo YOUR_USER pelo seu usuário
+# 1. Edite o arquivo substituindo YOUR_USER pelo seu usuário
 nano velhodorio.service
-nano velhodorio-agentos.service
 
 # 2. Copie para o systemd
 sudo cp velhodorio.service /etc/systemd/system/
-sudo cp velhodorio-agentos.service /etc/systemd/system/
 
 # 3. Ative e suba
 sudo systemctl daemon-reload
-sudo systemctl enable velhodorio velhodorio-agentos
-sudo systemctl start velhodorio velhodorio-agentos
+sudo systemctl enable velhodorio
+sudo systemctl start velhodorio
 
 # Acompanhar logs
 journalctl -u velhodorio -f
-journalctl -u velhodorio-agentos -f
 ```
 
-| Serviço | Arquivo | Função |
-|---|---|---|
-| `velhodorio` | `velhodorio.service` | Consumidor SQS — responde no WhatsApp/Telegram |
-| `velhodorio-agentos` | `velhodorio-agentos.service` | API REST na porta 7777 |
 ---
 
 ## 🌐 Arquitetura MCP Distribuída
